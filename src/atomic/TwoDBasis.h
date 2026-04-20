@@ -65,12 +65,18 @@ namespace helfem {
         /// Primitive range-separated two-electron integrals: <Nel^2 * (2L+1)> sorted for exchange
         std::vector<arma::mat> rs_ktei;
 
+        /// Primitive two-electron integrals for Coulomb resolution:
+        std::vector<arma::mat> prim_tei_cr;
+
         /// Add to radial submatrix
         void add_sub(arma::mat & M, size_t iang, size_t jang, const arma::mat & Msub) const;
         /// Set radial submatrix
         void set_sub(arma::mat & M, size_t iang, size_t jang, const arma::mat & Msub) const;
         /// Get radial submatrix
         arma::mat get_sub(const arma::mat & M, size_t iang, size_t jang) const;
+
+        /// Number of CR basis functions
+	int Nmax;
 
       public:
         TwoDBasis();
@@ -125,6 +131,8 @@ namespace helfem {
 
         /// Compute two-electron integrals
         void compute_tei(bool exchange);
+        /// Compute two-electron CR integrals
+        void compute_tei_cr(bool exchange);
         /// Compute range-separated two-electron integrals
         void compute_yukawa(double lambda);
         /// Compute range-separated two-electron integrals
@@ -134,6 +142,8 @@ namespace helfem {
         size_t Nbf() const;
         /// Number of dummy basis functions
         size_t Ndummy() const;
+
+	size_t Ncr() const;
 
         /// Number of radial functions
         size_t Nrad() const;
@@ -145,6 +155,10 @@ namespace helfem {
         int get_taylor_order() const;
         /// Get order of Taylor expansion
         double get_taylor_diff() const;
+
+        /// Number of CR basis functions
+        int get_Nmax() const;
+        void set_Nmax(int n);
 
         /// Form half-overlap matrix
         arma::mat Shalf(bool chol, int sym) const;
@@ -178,6 +192,8 @@ namespace helfem {
 
         /// Form Coulomb matrix
         arma::mat coulomb(const arma::mat & P) const;
+        /// Form Coulomb matrix using CR method
+        arma::mat coulomb_cr(const arma::mat & P) const;
         /// Form exchange matrix
         arma::mat exchange(const arma::mat & P) const;
         /// Form range-separated exchange matrix

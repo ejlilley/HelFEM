@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nelem0", 0, "number of elements between center and off-center nuclei", false, 0);
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
+  parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (Nmax)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
   parser.add<double>("Ez", 0, "electric dipole field", false, 0.0);
@@ -145,6 +146,8 @@ int main(int argc, char **argv) {
   // Number of nodes
   int Nnodes(parser.get<int>("nnodes"));
   int taylor_order(parser.get<int>("taylor_order"));
+
+  int Nmax(parser.get<int>("nmax"));
 
   // Order of quadrature rule
   int Nquad(parser.get<int>("nquad"));
@@ -271,6 +274,7 @@ int main(int argc, char **argv) {
 
   atomic::basis::TwoDBasis basis;
   basis=atomic::basis::TwoDBasis(Z, (modelpotential::nuclear_model_t) finitenuc, Rrms, poly, zeroder, Nquad, bval, taylor_order, lval, mval, Zl, Zr, Rhalf);
+  basis.set_Nmax(Nmax);
   chkpt.write(basis);
   printf("Basis set consists of %i angular shells composed of %i radial functions, totaling %i basis functions\n",(int) basis.Nang(), (int) basis.Nrad(), (int) basis.Nbf());
   printf("%ith order Taylor series used to evaluate basis functions for r <= %e, error %e\n",taylor_order, basis.get_small_r_taylor_cutoff(), basis.get_taylor_diff());
@@ -704,13 +708,23 @@ int main(int argc, char **argv) {
 
   printf("Computing two-electron integrals\n");
   fflush(stdout);
+  if(Nmax>=0) {
+    timer.set();
+    basis.compute_tei_cr(false);
+    printf("Computed CR-TEI in %.6f\n",timer.get());
+  }
   timer.set();
+    //} else {
   basis.compute_tei(kfrac!=0.0);
+  printf("Computed TEI in %.6f\n",timer.get());
+    //}
+  timer.set();
   if(yukawa)
     basis.compute_yukawa(omega);
   else if(erfc)
     basis.compute_erfc(omega);
-  printf("Done in %.6f\n",timer.get());
+  printf("Computed Yukawa/Erfc integrals in %.6f\n",timer.get());
+  //printf("Done in %.6f\n",timer.get());
 
   double Ekin=0.0, Epot=0.0, Ecoul=0.0, Exx=0.0, Exc=0.0, Eefield=0.0, Emfield=0.0, Econf=0.0, Etot=0.0;
   double Eold=0.0;
@@ -749,10 +763,23 @@ int main(int argc, char **argv) {
 
     // Form Coulomb matrix
     timer.set();
-    arma::mat J(basis.coulomb(P));
+    size_t nd = basis.Ndummy();
+    arma::mat J(nd,nd); arma::mat J_cr(nd,nd);
+    if (Nmax>=0) {
+      J_cr = basis.coulomb_cr(P);
+    } //else {
+    J = basis.coulomb(P);
+      //}
+    //arma::mat J(basis.coulomb(P));
     double tJ(timer.get());
     Ecoul=0.5*arma::trace(P*J);
-    printf("Coulomb energy %.10e % .6f\n",Ecoul,tJ);
+    double Ecoul_cr=0.5*arma::trace(P*J_cr);
+    printf("Coulomb energy %.10e % .6f",Ecoul,tJ);
+    printf("\t\t");
+    printf("Coulomb energy CR: %.10e",Ecoul_cr);
+    printf("\t\t");
+    printf("Coulomb CR log error: %.6f",log10(fabs(Ecoul_cr/Ecoul-1)));
+    printf("\n");
     fflush(stdout);
 
     chkpt.write("J",J);

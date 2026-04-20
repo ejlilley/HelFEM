@@ -17,6 +17,7 @@
 #include "RadialPotential.h"
 #include "chebyshev.h"
 #include "quadrature.h"
+#include "cr/cr_integrals.h"
 #include "utils.h"
 #include <cfloat>
 
@@ -482,10 +483,25 @@ namespace helfem {
         // Integral by quadrature
         std::shared_ptr<const polynomial_basis::PolynomialBasis> p(fem.get_basis(iel));
         arma::mat tei(quadrature::twoe_integral(Rmin, Rmax, xq, wq, p, L));
+	//std::cout << "computing twoe_integral with nprim=" << p->get_nprim() << " and nbf=" << p->get_nbf() << " and nnodes="<< p->get_nnodes() << "\n";
+	//std::cout << "tei has rows " << tei.n_rows << " and cols " << tei.n_cols << "\n";
         if(tei.has_nan()) {
           printf("twoe_integral(%i,%i) has NaN!\n",L,(int) iel);
         }
         return tei;
+      }
+
+      arma::mat RadialBasis::twoe_integral_cr(int Nmax, int L, size_t iel, double rs) const {
+	int nprim = fem.get_basis(iel)->get_nprim();
+	int ndeg = 2*nprim - 2;
+	//std::cout << "computing twoe_integral_cr with nprim=" << nprim << " and ndeg=" << ndeg << "\n";
+	cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
+	arma::mat tei_cr(cr::twoe_integral(fem, iknl, L, rs, iel));
+	//std::cout << "tei_cr has rows " << tei_cr.n_rows << " and cols " << tei_cr.n_cols << "\n";
+        if(tei_cr.has_nan()) {
+          printf("twoe_integral(%i,%i) has NaN!\n",L,(int) iel);
+        }
+        return tei_cr;
       }
 
       arma::mat RadialBasis::yukawa_integral(int L, double lambda, size_t iel) const {
