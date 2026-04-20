@@ -12,6 +12,7 @@ general/dftfuncs.cpp diatomic/basis.cpp diatomic/quadrature.cpp
 diatomic/dftgrid.cpp diatomic/twodquadrature.cpp
 general/model_potential.cpp
 )
+
 target_link_libraries(helfem-common PUBLIC helfem)
 target_include_directories(helfem-common PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../libhelfem/src/")
 
@@ -67,6 +68,11 @@ target_link_libraries(diatomic_dline helfem-common legendre)
 
 add_executable(diatomic_dgrid diatomic/density_grid.cpp)
 target_link_libraries(diatomic_dgrid helfem-common legendre)
+
+# add_library(cr cr/cr_utils.cpp cr/cr_spherical_potentials.cpp cr/cr_integrals.cpp)
+
+add_executable(cr_test cr/cr_test.cpp)
+target_link_libraries(cr_test helfem-common)
 
 # Install libraries and main executables
 install (TARGETS atomic diatomic diatomic_cbasis diatomic_cpl gensap DESTINATION bin OPTIONAL)
