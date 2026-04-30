@@ -178,6 +178,15 @@ namespace helfem {
       return phinl_vec;
     }
 
+    arma::mat PhinlTable::get_Phinl(double r) const {
+      if(get_index(r)>stor.size()) {
+        std::ostringstream oss;
+        oss << "Error in get_Phinl(" << r << "): index " << get_index(r) << " greater than array size " << stor.size() << "!\n";
+        throw std::logic_error(oss.str());
+      }
+      return stor[get_index(r)].Phinl;
+    }
+
 
     bool operator<(const iknl_table_t & lh, const iknl_table_t & rh) {
       return lh.r < rh.r;
@@ -227,7 +236,9 @@ namespace helfem {
 //	    return alpha*gsl_sf_beta(alpha*(1+k+l),alpha*(l-k));
 //	  }
 //	} else {
-	return alpha*beta_inc(alpha*(1+k+l),alpha*(l-k),chi);
+	double res = alpha*beta_inc(alpha*(1+k+l),alpha*(l-k),chi);
+	std::cout << "Ik0l(" << k << "," << l << "," << r << ") = " << res << "\n";
+	return res;
 //	}
 //	return alpha*gsl_sf_beta(alpha*(1+k+l),alpha*(l-k))*gsl_sf_beta_inc(alpha*(1+k+l),alpha*(l-k),chi);
       } else {

@@ -42,6 +42,9 @@ using namespace helfem;
 // }
 
 
+
+
+
 double eval_psi(int i, int j, const arma::vec & rnodes, double r) {
   //std::cout << "eval_psi(" << i << "," << j << "):\n";
   int n = rnodes.n_elem;
@@ -86,8 +89,6 @@ double eval_phi(int i, const arma::vec & rnodes, double r) {
 
 int main(void) {
 
-  // helfem::cr::PhinlTable phinl(0,4,4,0.5);
-  // 
   // phinl.compute(1.0); phinl.compute(2.0); phinl.compute(3.0); phinl.compute(4.0);
   // 
   // //double res = phinl.get_Phinl(1,1,0.3);
@@ -112,8 +113,6 @@ int main(void) {
 
 
 
-//   helfem::cr::IknlTable iknl(0,5,50,50,0.5);
-// 
 //   arma::vec rs = {1.0, 2.0, 3.0, 4.0, 5.0};
 // 
 //   arma::vec::iterator it     = rs.begin();
@@ -154,9 +153,9 @@ int main(void) {
   //std::cout << "type:" << typeid(poly).name() << "\n";
 
 
-  int nnodes = 3;
+  int nnodes = 4;
 
-  int quadnodes = 50; // should really have quadnodes == nnodes, but use small value of nnodes for testing purposes
+  int quadnodes = 30; // should really have nnodes > 10, and then quadnodes > nnodes, but use small values for testing purposes
 
   polynomial_basis::PolynomialBasis *pb =  polynomial_basis::get_basis(4,nnodes);
 
@@ -180,9 +179,6 @@ int main(void) {
   //chebyshev::chebyshev(nnodes, x, wx);
   ::lobatto_compute(quadnodes, x, wx);
   
-  std::cout << "x:\n" << x << "\n";
-  std::cout << "wx:\n" << wx << "\n";
-
   // arma::mat bf(pb->eval_dnf(x,0,5.0));
   // std::cout << "bf:\n" << bf << "\n";
 
@@ -191,13 +187,6 @@ int main(void) {
 // 
 //   arma::vec nodes = pb->get_nodes();
 // 
-  double rmin = 0.5; double rmax = 1.2;
-
-  double rmid = 0.5*(rmax + rmin); double rlen = 0.5*(rmax - rmin);
-
-  std::cout << "rmin: " << rmin << "\trmax: " << rmax << "\trmid: " << rmid << "\trlen: " << rlen << "\n";
-
-
 //   arma::mat bfprod(bf.n_rows,bf.n_cols*bf.n_cols);
 //   for(size_t fi=0;fi<bf.n_cols;fi++)
 //     for(size_t fj=0;fj<bf.n_cols;fj++)
@@ -210,83 +199,114 @@ int main(void) {
 
 
 
+  double rmin = 2.7; double rmax = 3.1;
+
+  double rmid = 0.5*(rmax + rmin); double rlen = 0.5*(rmax - rmin);
+
+  std::cout << "rmin: " << rmin << "\trmax: " << rmax << "\trmid: " << rmid << "\trlen: " << rlen << "\n";
+
   std::shared_ptr<const polynomial_basis::PolynomialBasis> p(pb);
 
   int nprim = p->get_nprim();
 
-  int Nmax = 20;
+  int Nmax = 25;
 
-  int L = 0;
+  int L = 10;
 
-  double rs = 1.0;
+  double rs = 1.5;
 
-  double Lfac=(4.0*M_PI/(2*L+1))/2.0; // the extra /2.0 here is mysterious!
+  helfem::cr::PhinlTable phinl(0,Nmax,L,0.5);
+  helfem::cr::IknlTable iknl(0,2*nprim-2,Nmax,L,0.5);
 
-  arma::mat quad_twoe = quadrature::twoe_integral(rmin, rmax, x, wx, p, L);
-
-  // std::cout << "quadrature twoe n rows: " << quad_twoe.n_rows << "\n";
-  // std::cout << "quadrature twoe n cols: " << quad_twoe.n_cols << "\n";
-  // std::cout << "quadrature twoe:\n" << quad_twoe << "\n";
-
-  arma::mat quad_twoe_full(nprim*nprim,nprim*nprim,arma::fill::zeros);
-
-  for (int i = 0; i < nprim; i++) {
-    for (int j = 0; j < nprim; j++) {
-      for (int k = 0; k < nprim; k++) {
-	for (int l = 0; l < nprim; l++) {
-	  // std::cout << "ijkl: " << i << "," << j << "," << k << "," << l << "\n";
-	  quad_twoe_full(i + j*nprim, k + l*nprim) = Lfac*(quad_twoe(i + j*nprim, k + l*nprim) + quad_twoe(k + l*nprim, i + j*nprim));
-	}
-      }
-    }
-  }
-
-  std::cout << "quadrature twoe full n rows: " << quad_twoe_full.n_rows << "\n";
-  std::cout << "quadrature twoe full n cols: " << quad_twoe_full.n_cols << "\n";
-  std::cout << "quadrature twoe full:\n" << quad_twoe_full << "\n";
-
-  // arma::mat quad_twoe_inner = quadrature::twoe_inner_integral(rmin, rmax, x, wx, p, L);
-  // 
-  // std::cout << "quadrature inner twoe n rows: " << quad_twoe_inner.n_rows << "\n";
-  // std::cout << "quadrature inner twoe n cols: " << quad_twoe_inner.n_cols << "\n";
-  // std::cout << "quadrature inner twoe:\n" << quad_twoe_inner << "\n";
-
-
-  arma::mat cr_twoe_pairs = cr::twoe_integral_pairs(rmin, rmax, p, Nmax, L, rs);
-
-  std::cout << "cr twoe pairs n rows: " << cr_twoe_pairs.n_rows << "    ";
-  std::cout << "cr twoe pairs n cols: " << cr_twoe_pairs.n_cols << "\n";
-  std::cout << "cr twoe pairs:\n" << cr_twoe_pairs << "\n";
-
-
-
-  //int nprim = p->get_nprim();
-  int ndeg = 2*nprim - 2;
-
-  cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
-
-  int Nelem = 4; double Rmax = 40.0;
-  int Z = 2; int Zl = 0; int Zr = 0;
-  int finitenuc = 0; double Rrms = 0.0; int igrid = 4; double zexp = 2.0;
-  int Nelem0 = 0; int igrid0 = 4; double zexp0 = 2.0;
-  double Rhalf = 0.0; bool add_conf = true; double shift_conf = 0.0;
-
-  arma::vec bval=atomic::basis::form_grid((modelpotential::nuclear_model_t) finitenuc, Rrms, Nelem, Rmax, igrid, zexp, Nelem0, igrid0, zexp0, Z, Zl, Zr, Rhalf, add_conf, shift_conf);
-
-
-  polynomial_basis::FiniteElementBasis fem(p, bval, true, false, true, false);
-
-  arma::cube cr_twoe(Nelem,nprim*nprim,Nmax+1);
+  arma::mat ints_orig(helfem::cr::twoe_integral_wrk(rmin, rmax, p, iknl, L, rs));
   
-  for(int iel = 0; iel < Nelem; iel++) {
-    cr_twoe.row(iel) = cr::twoe_integral(fem, iknl, L, rs, iel);
-  }
+  std::cout << "ints (original method):\n" << ints_orig << "\n";
+  
+  // arma::vec ints(helfem::cr::IBF0l_quadrature(rmin, rmax, L, x, wx, phinl, p, rs));
+  // 
+  // std::cout << "ints:\n" << ints << "\n";
+  // 
+  // std::cout << "ratio:\n" << ints/ints_orig << "\n";
 
-  std::cout << "cr twoe n rows: " << cr_twoe.n_rows << "    ";
-  std::cout << "cr twoe n cols: " << cr_twoe.n_cols << "    ";
-  std::cout << "cr twoe n slices: " << cr_twoe.n_slices << "\n";
-  std::cout << "cr twoe:\n" << cr_twoe << "\n";
 
+  arma::mat ints(helfem::cr::IBFnl_quadrature(rmin, rmax, x, wx, phinl, p, rs));
+  
+  arma::mat intsL(ints.cols((Nmax+1)*L,(Nmax+1)*(L+1)-1));
+
+  //std::cout << "ints:\n" << ints << "\n";
+
+  std::cout << "ints:\n" << intsL << "\n";
+
+  std::cout << "ratio:\n" << intsL/ints_orig << "\n";
+
+
+//  double Lfac=(4.0*M_PI/(2*L+1))/2.0; // the extra /2.0 here is mysterious!
+//
+//  arma::mat quad_twoe = quadrature::twoe_integral(rmin, rmax, x, wx, p, L);
+//
+//  // std::cout << "quadrature twoe n rows: " << quad_twoe.n_rows << "\n";
+//  // std::cout << "quadrature twoe n cols: " << quad_twoe.n_cols << "\n";
+//  // std::cout << "quadrature twoe:\n" << quad_twoe << "\n";
+//
+//  arma::mat quad_twoe_full(nprim*nprim,nprim*nprim,arma::fill::zeros);
+//
+//  for (int i = 0; i < nprim; i++) {
+//    for (int j = 0; j < nprim; j++) {
+//      for (int k = 0; k < nprim; k++) {
+//	for (int l = 0; l < nprim; l++) {
+//	  // std::cout << "ijkl: " << i << "," << j << "," << k << "," << l << "\n";
+//	  quad_twoe_full(i + j*nprim, k + l*nprim) = Lfac*(quad_twoe(i + j*nprim, k + l*nprim) + quad_twoe(k + l*nprim, i + j*nprim));
+//	}
+//      }
+//    }
+//  }
+//
+//  std::cout << "quadrature twoe full n rows: " << quad_twoe_full.n_rows << "\n";
+//  std::cout << "quadrature twoe full n cols: " << quad_twoe_full.n_cols << "\n";
+//  std::cout << "quadrature twoe full:\n" << quad_twoe_full << "\n";
+//
+//  // arma::mat quad_twoe_inner = quadrature::twoe_inner_integral(rmin, rmax, x, wx, p, L);
+//  // 
+//  // std::cout << "quadrature inner twoe n rows: " << quad_twoe_inner.n_rows << "\n";
+//  // std::cout << "quadrature inner twoe n cols: " << quad_twoe_inner.n_cols << "\n";
+//  // std::cout << "quadrature inner twoe:\n" << quad_twoe_inner << "\n";
+//
+//
+//  arma::mat cr_twoe_pairs = cr::twoe_integral_pairs(rmin, rmax, p, Nmax, L, rs);
+//
+//  std::cout << "cr twoe pairs n rows: " << cr_twoe_pairs.n_rows << "    ";
+//  std::cout << "cr twoe pairs n cols: " << cr_twoe_pairs.n_cols << "\n";
+//  std::cout << "cr twoe pairs:\n" << cr_twoe_pairs << "\n";
+//
+//
+//
+//  //int nprim = p->get_nprim();
+//  int ndeg = 2*nprim - 2;
+//
+//  cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
+//
+//  int Nelem = 4; double Rmax = 40.0;
+//  int Z = 2; int Zl = 0; int Zr = 0;
+//  int finitenuc = 0; double Rrms = 0.0; int igrid = 4; double zexp = 2.0;
+//  int Nelem0 = 0; int igrid0 = 4; double zexp0 = 2.0;
+//  double Rhalf = 0.0; bool add_conf = true; double shift_conf = 0.0;
+//
+//  arma::vec bval=atomic::basis::form_grid((modelpotential::nuclear_model_t) finitenuc, Rrms, Nelem, Rmax, igrid, zexp, Nelem0, igrid0, zexp0, Z, Zl, Zr, Rhalf, add_conf, shift_conf);
+//
+//
+//  polynomial_basis::FiniteElementBasis fem(p, bval, true, false, true, false);
+//
+//  arma::cube cr_twoe(Nelem,nprim*nprim,Nmax+1);
+//  
+//  for(int iel = 0; iel < Nelem; iel++) {
+//    cr_twoe.row(iel) = cr::twoe_integral(fem, iknl, L, rs, iel);
+//  }
+//
+//  std::cout << "cr twoe n rows: " << cr_twoe.n_rows << "    ";
+//  std::cout << "cr twoe n cols: " << cr_twoe.n_cols << "    ";
+//  std::cout << "cr twoe n slices: " << cr_twoe.n_slices << "\n";
+//  std::cout << "cr twoe:\n" << cr_twoe << "\n";
+//
 
 
   return 0;

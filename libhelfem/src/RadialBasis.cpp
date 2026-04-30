@@ -495,13 +495,21 @@ namespace helfem {
 	int nprim = fem.get_basis(iel)->get_nprim();
 	int ndeg = 2*nprim - 2;
 	//std::cout << "computing twoe_integral_cr with nprim=" << nprim << " and ndeg=" << ndeg << "\n";
-	cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
-	arma::mat tei_cr(cr::twoe_integral(fem, iknl, L, rs, iel));
+	//cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
+	cr::IknlTable iknl(0,ndeg,Nmax,L,1.0);
+
+	//arma::mat tei_cr(cr::twoe_integral(fem, iknl, L, rs, iel));
 	//std::cout << "tei_cr has rows " << tei_cr.n_rows << " and cols " << tei_cr.n_cols << "\n";
-        if(tei_cr.has_nan()) {
+	//std::cout << "tei_cr:\n" << tei_cr << "\n";
+
+	arma::mat tei_cr_quad(cr::twoe_integral_quadrature(fem, iknl, L, rs, iel, xq, wq));
+	//std::cout << "tei_cr_quad has rows " << tei_cr_quad.n_rows << " and cols " << tei_cr_quad.n_cols << "\n";
+	//std::cout << "tei_cr_quad:\n" << tei_cr_quad << "\n";
+
+        if(tei_cr_quad.has_nan()) {
           printf("twoe_integral(%i,%i) has NaN!\n",L,(int) iel);
         }
-        return tei_cr;
+        return tei_cr_quad;
       }
 
       arma::mat RadialBasis::yukawa_integral(int L, double lambda, size_t iel) const {

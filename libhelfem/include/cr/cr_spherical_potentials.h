@@ -49,11 +49,11 @@ namespace helfem {
 
       arma::mat get_Nnl();
 
-      /// Get value from table
+      /// Get value(s) from table
       double get_Phinl(int n, int l, double r) const;
-
-      /// Get value from table
       arma::vec get_Phinl(int n, int l, const arma::vec & r) const;
+      arma::mat get_Phinl(double r) const;
+
     };
 
     typedef struct {
@@ -82,9 +82,6 @@ namespace helfem {
       /// Find index in array
       size_t get_index(double r, bool check=true) const;
 
-      // Iknl gets its own internal phinl object
-      PhinlTable phinl;
-
     public:
       /// Dummy constructor
       IknlTable();
@@ -94,6 +91,9 @@ namespace helfem {
       ~IknlTable();
       /// Add value to table
       void compute(double r);
+
+      // Iknl gets its own internal phinl object
+      PhinlTable phinl;
 
       double Ik0l(int k, int l, double r);
 

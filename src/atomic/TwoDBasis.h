@@ -77,6 +77,8 @@ namespace helfem {
 
         /// Number of CR basis functions
 	int Nmax;
+        /// CR rsfrac parameter
+	double rsfrac;
 
       public:
         TwoDBasis();
@@ -132,7 +134,7 @@ namespace helfem {
         /// Compute two-electron integrals
         void compute_tei(bool exchange);
         /// Compute two-electron CR integrals
-        void compute_tei_cr(bool exchange);
+        void compute_tei_cr();
         /// Compute range-separated two-electron integrals
         void compute_yukawa(double lambda);
         /// Compute range-separated two-electron integrals
@@ -159,6 +161,10 @@ namespace helfem {
         /// Number of CR basis functions
         int get_Nmax() const;
         void set_Nmax(int n);
+
+        /// CR rsfrac parameter
+        double get_rsfrac() const;
+        void set_rsfrac(double rsf);
 
         /// Form half-overlap matrix
         arma::mat Shalf(bool chol, int sym) const;
@@ -196,6 +202,8 @@ namespace helfem {
         arma::mat coulomb_cr(const arma::mat & P) const;
         /// Form exchange matrix
         arma::mat exchange(const arma::mat & P) const;
+        /// Form exchange matrix using CR method
+        arma::mat exchange_cr(const arma::mat & P) const;
         /// Form range-separated exchange matrix
         arma::mat rs_exchange(const arma::mat & P) const;
 
