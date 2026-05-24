@@ -13,18 +13,18 @@ namespace helfem {
     // unnormalised incomplete beta function, including support for negative arguments
     double beta_inc(double a, double b, double x) {
       //std::cout << "beta_inc_{" << x << "}(" << a << "," << b << ")\n";
-      double asymp_threshold = strtod("1e-2",NULL);
+      double asymp_threshold = strtod("1e-2",NULL); // this threshold is not actually correct
       if ((a > 0) && (x == 0.0)) {
 	return 0.0;
       } else if ((a > 0) && (b > 0)) {
 	return gsl_sf_beta(a,b)*gsl_sf_beta_inc(a,b,x);
-      } else if ((b == 0) && (1-x < asymp_threshold)) { // the 1e-3 threshold is not actually correct
+      } else if ((b == 0) && (1-x < asymp_threshold)) {
 	double eps = 1-x;
 	double res = -(1 - a*eps)*(gsl_sf_log(eps) + gsl_sf_psi(a) + M_EULER);
 	std::cout << "Warning: using asymptotic form of beta_inc(" << a << "," << b << "," << x << "): [eps=" << eps << ", a=" << a << "]" <<  "\t\t -(1 - a*eps)*(gsl_sf_log(eps) + gsl_sf_psi(a) + M_EULER) = " << res << "\n";
 	return res; // logarithmic asymptote of incomplete beta function when x -> 1 from below
 	// return (1-α*(1+2k)*ε) * (-1)*(Log[ε] + PolyGamma[α*(1+2k)] + EulerGamma);
-      } else if ((b < 0) && (1-x < asymp_threshold)) { // the 1e-3 threshold is not actually correct
+      } else if ((b < 0) && (1-x < asymp_threshold)) {
 	double eps = 1-x;
 	double res = -(1 - eps*a)*pow(eps,b)/b;
 	std::cout << "Warning: using asymptotic form of beta_inc(" << a << "," << b << "," << x << "): [eps=" << eps << ", a=" << a << ", b=" << b << "]" <<  "\t\t -(1 - eps*a)*pow(eps,b)/b = " << res << "\n";
@@ -85,7 +85,54 @@ namespace helfem {
 
     }
 
+    arma::vec genlaguerre_n(int n, double a, double x) {
+      // produce a vector of Laguerre polynomials of order 0...n, each
+      // evaluated with the same argument (x) and parameter (a)
+      // (see e.g. genlaguerreCN in common.m)
+      if (a < -1) {
+	return {arma::datum::nan};
+      }
 
-    
+      if (n < 0) {
+	return {};
+      }
+
+      if (n == 0) {
+	return {1.0};
+      }
+
+      if (n == 1) {
+	return {1.0, -x+a+1};
+      }
+
+      arma::vec bi2(n+1);
+      bi2[0] = 1.0;
+
+      double d(-x/(a+1));
+      double p(d+1);
+      arma::vec p2(n+1);
+      p2[0] = 1.0;
+      p2[1] = p;
+
+      int k;
+      int kk;
+
+      for (int kk = 0; kk <= n-2; kk++) {
+	k = kk+1;
+	d=-x/(k+a+1)*p + (k/(k+a+1))*d;
+	p=d+p;
+	p2[k+1] = p;
+      }
+
+      double bi(1.0);
+      for (int i = 1; i <= n; i++) {
+	bi = bi*(a+i)/i;
+	bi2[i] = bi;
+      }
+
+      return bi2 % p2;
+    }
+
+
   }
 }

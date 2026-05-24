@@ -491,12 +491,13 @@ namespace helfem {
         return tei;
       }
 
-      arma::mat RadialBasis::twoe_integral_cr(int Nmax, int L, size_t iel, double rs) const {
+      arma::mat RadialBasis::twoe_integral_cr(int CR, int Nmax, int L, size_t iel, double rs) const {
 	int nprim = fem.get_basis(iel)->get_nprim();
 	int ndeg = 2*nprim - 2;
 	//std::cout << "computing twoe_integral_cr with nprim=" << nprim << " and ndeg=" << ndeg << "\n";
 	//cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
-	cr::IknlTable iknl(0,ndeg,Nmax,L,1.0);
+	//cr::IknlTable iknl(0,ndeg,Nmax,L,0.5);
+	cr::IknlTable iknl(CR,ndeg,Nmax,L,0.5);
 
 	//arma::mat tei_cr(cr::twoe_integral(fem, iknl, L, rs, iel));
 	//std::cout << "tei_cr has rows " << tei_cr.n_rows << " and cols " << tei_cr.n_cols << "\n";

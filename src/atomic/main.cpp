@@ -81,7 +81,8 @@ int main(int argc, char **argv) {
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
   parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (Nmax)", false, -1);
-  parser.add<double>("rsfrac", 0, "CR rs expressed as a fraction of Rmax", false, 0.05);
+  parser.add<double>("rsfrac", 0, "CR rs expressed as a fraction of Bohr radius", false, 1.0);
+  parser.add<int>("cr", 0, "type of CR to use (<0: disabled; 0: Zhao; 1: Slater)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
   parser.add<double>("Ez", 0, "electric dipole field", false, 0.0);
@@ -150,6 +151,7 @@ int main(int argc, char **argv) {
 
   int Nmax(parser.get<int>("nmax"));
   double rsfrac(parser.get<double>("rsfrac"));
+  int CR(parser.get<int>("cr"));
 
   // Order of quadrature rule
   int Nquad(parser.get<int>("nquad"));
@@ -279,6 +281,7 @@ int main(int argc, char **argv) {
   basis.set_Nmax(Nmax);
   basis.set_rsfrac(rsfrac);
   chkpt.write(basis);
+  std::cout << "    Rhalf=" << Rhalf << "    Rrms=" << Rrms << "\n";
   printf("Basis set consists of %i angular shells composed of %i radial functions, totaling %i basis functions\n",(int) basis.Nang(), (int) basis.Nrad(), (int) basis.Nbf());
   printf("%ith order Taylor series used to evaluate basis functions for r <= %e, error %e\n",taylor_order, basis.get_small_r_taylor_cutoff(), basis.get_taylor_diff());
 
@@ -711,9 +714,9 @@ int main(int argc, char **argv) {
 
   printf("Computing two-electron integrals\n");
   fflush(stdout);
-  if(Nmax>=0) {
+  if(CR>=0) {
     timer.set();
-    basis.compute_tei_cr();
+    basis.compute_tei_cr(CR);
     printf("Computed CR-TEI in %.6f\n",timer.get());
   }
   timer.set();
@@ -769,7 +772,7 @@ int main(int argc, char **argv) {
     size_t nd = basis.Ndummy();
     arma::mat J(nd,nd); arma::mat J_cr(nd,nd);
     double tJ_cr;
-    if (Nmax>=0) {
+    if (CR>=0) {
       J_cr = basis.coulomb_cr(P);
       tJ_cr = timer.get();
     } //else {
@@ -781,7 +784,7 @@ int main(int argc, char **argv) {
     Ecoul=0.5*arma::trace(P*J);
     double Ecoul_cr=0.5*arma::trace(P*J_cr);
     printf("Coulomb energy %.10e % .6f",Ecoul,tJ);
-    if (Nmax>=0) {
+    if (CR>=0) {
       printf("\t\t");
       printf("Coulomb energy CR: %.10e % .6f",Ecoul_cr,tJ_cr);
       printf("\t\t");
@@ -795,7 +798,7 @@ int main(int argc, char **argv) {
     // Form exchange matrix (CR)
     arma::mat Ka_cr; arma::mat Kb_cr;
     double Exx_cr(0.0); double tK_cr(0.0);
-    if (Nmax>=0) {
+    if (CR>=0) {
       timer.set();
 
       Ka_cr = basis.exchange_cr(Pa);
@@ -841,7 +844,7 @@ int main(int argc, char **argv) {
       Exx=0.0;
     }
 
-    if (Nmax>=0) {
+    if (CR>=0) {
       printf("\t\t");
       printf("Exchange energy CR: %.10e % .6f",Exx_cr,tK_cr);
       printf("\t\t");

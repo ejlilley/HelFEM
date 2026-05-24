@@ -45,7 +45,17 @@ namespace helfem {
       /// Add value to table
       void compute(double r);
 
+      /// Zeroth order of phinl
       double phi0l(int l, double r);
+
+      /// Return (vector of first n) real form of index-raising
+      /// polynomials pnl(s) (used for computing Taylor expansions)
+      arma::vec pnl(int n, int l, double s);
+      // Same but return one column for each argument
+      arma::mat pnl_mat(int n, int l, const arma::vec & s);
+
+      /// Taylor series for phinl around r=0 with k terms
+      //double taylor(int n, int l, int k, double r);
 
       arma::mat get_Nnl();
 

@@ -96,18 +96,18 @@ namespace helfem {
       arma::vec nodes = poly->get_nodes();
       arma::vec rnodes(rmid*arma::ones<arma::vec>(nodes.n_elem)+rlen*nodes);
 
-      std::cout << "nodes =\n" << nodes << "\n";
-      std::cout << "rnodes =\n" << rnodes << "\n";
+      //std::cout << "nodes =\n" << nodes << "\n";
+      //std::cout << "rnodes =\n" << rnodes << "\n";
 
       int nnodes = rnodes.n_elem;
       int nprim = poly->get_nprim();
       int ndeg = 2*nprim - 2; // maximum polynomial degree of product of basis funs (= Kmax)
       // int nmax = 50;
 
-      std::cout << "nnodes = " << nnodes << "\n";
-      std::cout << "nprim = " << nprim << "\n";
-      std::cout << "ndeg = " << ndeg << "\n";
-      std::cout << "nmax = " << nmax << "\n";
+      //std::cout << "nnodes = " << nnodes << "\n";
+      //std::cout << "nprim = " << nprim << "\n";
+      //std::cout << "ndeg = " << ndeg << "\n";
+      //std::cout << "nmax = " << nmax << "\n";
 
       cr::IknlTable iknl(0,ndeg,nmax,L,0.5);
 
@@ -135,9 +135,9 @@ namespace helfem {
 
       arma::cube cijnl(nprim,nprim,nmax+1,arma::fill::zeros);
 
-      std::cout << "cijnl.n_rows = " << cijnl.n_rows << "\n";
-      std::cout << "cijnl.n_cols = " << cijnl.n_cols << "\n";
-      std::cout << "cijnl.n_slices = " << cijnl.n_slices << "\n";
+      //std::cout << "cijnl.n_rows = " << cijnl.n_rows << "\n";
+      //std::cout << "cijnl.n_cols = " << cijnl.n_cols << "\n";
+      //std::cout << "cijnl.n_slices = " << cijnl.n_slices << "\n";
 
 
 //      for (int n = 0; n <= nmax; n++) {
@@ -163,8 +163,8 @@ namespace helfem {
       
       arma::mat twoe_ints(nprim*nprim,nprim*nprim,arma::fill::zeros);
       
-      std::cout << "twoe_ints.n_rows = " << twoe_ints.n_rows << "\n";
-      std::cout << "twoe_ints.n_cols = " << twoe_ints.n_cols << "\n";
+      //std::cout << "twoe_ints.n_rows = " << twoe_ints.n_rows << "\n";
+      //std::cout << "twoe_ints.n_cols = " << twoe_ints.n_cols << "\n";
 
 
 //      arma::vec foo(cijnl.tube(0,0));
@@ -416,14 +416,14 @@ namespace helfem {
         bfprod.col(i)%=wq;
       }
 
-      std::cout << "bfprod rows: " << bfprod.n_rows << " cols: " << bfprod.n_cols << "\n";
+      //std::cout << "bfprod rows: " << bfprod.n_rows << " cols: " << bfprod.n_cols << "\n";
 
       arma::mat Nnl(phinl.get_Nnl());
 
       int nmax = Nnl.n_rows - 1;
       int lmax = Nnl.n_cols - 1;
 
-      std::cout << "Nnl rows: " << Nnl.n_rows << " cols: " << Nnl.n_cols << "\n";
+      //std::cout << "Nnl rows: " << Nnl.n_rows << " cols: " << Nnl.n_cols << "\n";
 
       for (int j = 0; j < nq; j++) {
 	phinl.compute(rq[j]);
@@ -433,7 +433,7 @@ namespace helfem {
       //arma::cube phiq(nmax+1,lmax+1,nq);
       arma::mat phiq((nmax+1)*(lmax+1),nq);
 
-      std::cout << "phiq rows: " << phiq.n_rows << " cols: " << phiq.n_cols << "\n";
+      //std::cout << "phiq rows: " << phiq.n_rows << " cols: " << phiq.n_cols << "\n";
 
       arma::vec vNnl(arma::sqrt(arma::vectorise(Nnl)));
 
@@ -449,7 +449,7 @@ namespace helfem {
 
       arma::mat ints((nmax+1)*(lmax+1),bfprod.n_cols);
 
-      std::cout << "ints rows: " << ints.n_rows << " cols: " << ints.n_cols << "\n";
+      //std::cout << "ints rows: " << ints.n_rows << " cols: " << ints.n_cols << "\n";
 
       //arma::mat ones_mat(nmax+1,lmax+1);
       //arma::vec ones_vec((nmax+1)*(lmax+1));

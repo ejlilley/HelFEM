@@ -74,6 +74,10 @@ target_link_libraries(diatomic_dgrid helfem-common legendre)
 add_executable(cr_test cr/cr_test.cpp)
 target_link_libraries(cr_test helfem-common)
 
+add_executable(cr_check_expressions cr/cr_check_expressions.cpp)
+target_link_libraries(cr_check_expressions helfem-common)
+
+
 # Install libraries and main executables
 install (TARGETS atomic diatomic diatomic_cbasis diatomic_cpl gensap DESTINATION bin OPTIONAL)
 install (TARGETS helfem-common legendre DESTINATION lib OPTIONAL)

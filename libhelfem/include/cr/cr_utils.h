@@ -13,5 +13,7 @@ namespace helfem {
 
     arma::vec es_poly(int k, const arma::vec & x);
 
+    arma::vec genlaguerre_n(int n, double a, double x);
+
   }
 }

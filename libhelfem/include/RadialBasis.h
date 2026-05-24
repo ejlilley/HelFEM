@@ -146,7 +146,7 @@ namespace helfem {
         /// Compute primitive two-electron integral
         arma::mat twoe_integral(int L, size_t iel) const;
         /// Compute primitive two-electron integral using Coulomb resolution
-        arma::mat twoe_integral_cr(int Nmax, int L, size_t iel, double rs) const;
+        arma::mat twoe_integral_cr(int CR, int Nmax, int L, size_t iel, double rs) const;
         /// Compute primitive Yukawa-screened two-electron integral
         arma::mat yukawa_integral(int L, double lambda, size_t iel) const;
         /// Compute primitive complementary error function two-electron integral

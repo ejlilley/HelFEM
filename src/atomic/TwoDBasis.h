@@ -134,7 +134,7 @@ namespace helfem {
         /// Compute two-electron integrals
         void compute_tei(bool exchange);
         /// Compute two-electron CR integrals
-        void compute_tei_cr();
+        void compute_tei_cr(int CR);
         /// Compute range-separated two-electron integrals
         void compute_yukawa(double lambda);
         /// Compute range-separated two-electron integrals

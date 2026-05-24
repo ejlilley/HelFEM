@@ -24,6 +24,7 @@
 #include <cassert>
 #include <cfloat>
 #include <helfem.h>
+#include "../general/constants.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -57,7 +58,7 @@ namespace helfem {
         mval=mval_;
 
 	Nmax = -1;
-	rsfrac = 0.2;
+	rsfrac = 1.0;
       }
 
       TwoDBasis::~TwoDBasis() {
@@ -758,14 +759,15 @@ namespace helfem {
         }
       }
 
-      void TwoDBasis::compute_tei_cr() {
+      void TwoDBasis::compute_tei_cr(int CR) {
         // Number of distinct L values is
         size_t N_L(2*arma::max(lval)+1);
         size_t Nel(radial.Nel());
 
 	size_t Nmax = TwoDBasis::get_Nmax();
 	double rmax = radial.fem.element_end(Nel-1);
-	double rs = rmax*TwoDBasis::get_rsfrac();  // should probably use Bohr radius instead of rmax
+	//double rs = rmax*TwoDBasis::get_rsfrac();  // should probably use Bohr radius instead of rmax
+	double rs = BOHRINANGSTROM*TwoDBasis::get_rsfrac();
 
 	std::cout << "CR: Nmax=" << Nmax << "    rs=" << rs << "\n";
 
@@ -787,7 +789,7 @@ namespace helfem {
             //prim_tei[Nel*Nel*L + iel*Nel + iel]=radial.twoe_integral(L,iel);
 	    //std::cout << "prim_tei[" << Nel*Nel*L + iel*Nel + iel << "] size is " << prim_tei[Nel*Nel*L + iel*Nel + iel].size() << "\n";
 
-            prim_tei_cr[Nel*L + iel] = radial.twoe_integral_cr(Nmax,L,iel,rs);
+            prim_tei_cr[Nel*L + iel] = radial.twoe_integral_cr(CR,Nmax,L,iel,rs);
 	    //std::cout << "prim_tei_cr[" << Nel*L + iel << "] size is " << prim_tei_cr[Nel*L + iel].size() << "\n";
 
           }
@@ -1166,9 +1168,14 @@ namespace helfem {
             for(int L=Lmin;L<=Lmax;L++) {
               // Calculate coupling coefficient
               double cpl(gaunt.coeff(lk,mk,L,M,ll,ml));
+
+	      if (cpl==0.0)
+		continue;
+
               // Increment
 
-	      //arma::mat Psubkl(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1));
+	      arma::mat Psubkl(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1));
+
 	      //std::cout << "Psubkl rows: " << Psubkl.n_rows << "    ";
 	      //std::cout << "Psubkl cols: " << Psubkl.n_cols << "    ";
 	      //std::cout << "\n";
@@ -1182,8 +1189,8 @@ namespace helfem {
 		radial.get_idx(iel,ifirst,ilast);
 		size_t Ni(ilast-ifirst+1);
 
-		//arma::mat Psubkli(Psubkl.submat(ifirst,ifirst,ilast,ilast));
-		arma::mat Psubkli(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1).submat(ifirst,ifirst,ilast,ilast));
+		arma::mat Psubkli(Psubkl.submat(ifirst,ifirst,ilast,ilast));
+		//arma::mat Psubkli(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1).submat(ifirst,ifirst,ilast,ilast));
 		Psubkli.reshape(Ni*Ni,1);
 		//std::cout << "Psubkli rows: " << Psubkli.n_rows << "    ";
 		//std::cout << "Psubkli cols: " << Psubkli.n_cols << "    ";
@@ -1475,36 +1482,36 @@ namespace helfem {
 	//        K_cr2.zeros();
 
 
-//         // Helper memory
-// #ifdef _OPENMP
-//         const int nth(omp_get_max_threads());
-// #else
+        // Helper memory
+#ifdef _OPENMP
+        const int nth(omp_get_max_threads());
+#else
 	const int nth(1);
-// #endif
+#endif
 	std::vector<arma::vec> mem_Ksub(nth);
 	std::vector<arma::vec> mem_Psub(nth);
 	std::vector<arma::vec> mem_S(nth);
 //	std::vector<arma::vec> mem_T(nth);
 // 
-// #ifdef _OPENMP
-// #pragma omp parallel
-// #endif
-//         {
-// #ifdef _OPENMP
-//           const int ith(omp_get_thread_num());
-// #else
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+	{
+#ifdef _OPENMP
+          const int ith(omp_get_thread_num());
+#else
 	const int ith(0);
-// #endif
+#endif
 //           // These are only small submatrices!
 	mem_Psub[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
 	mem_Ksub[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
 	mem_S[ith].zeros(radial.max_Nprim()*radial.max_Nprim()*(Nmax+1));
 //	mem_T[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
 // 
-//           // Increment
-// #ifdef _OPENMP
-// #pragma omp for collapse(2)
-// #endif
+          // Increment
+#ifdef _OPENMP
+#pragma omp for collapse(2)
+#endif
           for(size_t jang=0;jang<lval.n_elem;jang++) {
             for(size_t kang=0;kang<lval.n_elem;kang++) {
               int lj(lval(jang));
@@ -1683,15 +1690,17 @@ namespace helfem {
 		    //K_cr2.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= prim_tei_cr_cube_i.each_slice()*Psub*prim_tei_cr_cube_l.each_slice();
 
 		    //arma::cube Ssub(prim_tei_cr_cube_i.each_slice()*Psub);
-		    arma::cube S(mem_S[ith].memptr(),Ni,Nl,Nmax+1,false,true);
-		    S = prim_tei_cr_cube_i.each_slice()*Psub;
+
+		    //arma::cube S(mem_S[ith].memptr(),Ni,Nl,Nmax+1,false,true);
+		    //S = prim_tei_cr_cube_i.each_slice()*Psub;
 
 		    arma::mat Ksub(mem_Ksub[ith].memptr(),Ni,Nl,false,true);
 		    Ksub.zeros();
 		    
 		    for(size_t N=0;N<=Nmax;N++) { // ideally this would also use broadcasting
 		      //S.slice(N) *= prim_tei_cr_cube_l.slice(N);
-		      Ksub += S.slice(N)*prim_tei_cr_cube_l.slice(N);
+		      //Ksub += S.slice(N)*prim_tei_cr_cube_l.slice(N);
+		      Ksub += prim_tei_cr_cube_i.slice(N)*Psub*prim_tei_cr_cube_l.slice(N);
 		    }
 
 		    //K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= accum;
@@ -1714,7 +1723,7 @@ namespace helfem {
 	      }
 	    }
           }
-//       }
+	}
 
 
 
