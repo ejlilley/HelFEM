@@ -802,7 +802,18 @@ int main(int argc, char **argv) {
       timer.set();
 
       Ka_cr = basis.exchange_cr(Pa);
-      Kb_cr = basis.exchange_cr(Pb);
+
+      if(nelb) {
+        if(restr && nela==nelb) {
+          Kb_cr=Ka_cr;
+        } else {
+          if(kfrac!=0.0)
+            Kb_cr+=kfrac*basis.exchange_cr(Pb);
+          //if(omega!=0.0)
+	    //Kb+=kshort*basis.rs_exchange(Pb);
+        }
+      }
+      //Kb_cr = basis.exchange_cr(Pb);
       //std::cout << "CR exchange: Ka_cr = \n" << Ka_cr << "\n";
 
       tK_cr = timer.get();

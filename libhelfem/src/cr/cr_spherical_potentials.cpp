@@ -180,6 +180,7 @@ namespace helfem {
 
 
     void PhinlTable::compute(double r) {
+      // This routine could also be trivially parallelised w.r.t. r
       phinl_table_t entry;
 
       //std::cout << "begin computing Phinl at r=" << r << "\n";
@@ -315,6 +316,9 @@ namespace helfem {
 	  // (technically we were wasteful in that we've already computed all 3 methods for each (n,l,r), but it was all vectorised enough that hopefully we still win on performance)
 	  for (int n = 0; n <= Nmax; n++) {
 	    double nd(n);
+	    // The conditions in the next few if-statements are of
+	    // course empirically-determined, and could perhaps be
+	    // improved with further numerical experimentation.
 	    if (r<(nd/4+1.1*ld)/20) { // use Taylor series
 	      
 	      //std::cout << "Slater Taylor eval with r=" << r << " n=" << n << " l=" << l << "\n";
