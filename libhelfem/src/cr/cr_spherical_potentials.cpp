@@ -34,7 +34,7 @@ namespace helfem {
 	oss << "Invalid CR alpha parameter\n";
 	throw std::logic_error(oss.str());
       }
-      if (CR > 1) {
+      if (CR > 1 || CR < 0) {
 	std::ostringstream oss;
 	oss << "Invalid CR \"" << CR << "\" (not implemented)\n";
 	throw std::logic_error(oss.str());
@@ -143,17 +143,28 @@ namespace helfem {
 
       //arma::vec ret(n0+1);
 
+      if (CR == 0) {
 	for (int l = 0; l <= Lmax; l++) {
 	  for (int n = 0; n <= Nmax; n++) {
-	    if (CR == 0) {
-	      double mu = alpha*(1+2*l);
-	      PhinlTable::Nnl(n,l) = (2*n+2*mu+1)*mu*gsl_sf_gamma(mu+2)/(sqrt(M_PI)*pow(alpha,2*n+1)*pow(2,4*n+2*mu+4)*(mu+0.5)*gsl_sf_gamma(mu+1.5)) * gsl_sf_fact(n)*gsl_sf_poch(mu,n)*gsl_sf_poch(mu+2,n)*gsl_sf_poch(2*mu+1,n)/pow(gsl_sf_poch(mu+1.5,n),2);
-	    } else if (CR == 1) {
-	      PhinlTable::Nnl(n,l) = M_PI*pow(2,-1-2*l-2*n)*(2*n+2*l+5)/(1 + 2*l + 2*n) * gsl_sf_fact(n) * gsl_sf_gamma(n+2*l+3);
-	    }
+	    double mu = alpha*(1+2*l);
+	    PhinlTable::Nnl(n,l) = (2*n+2*mu+1)*mu*gsl_sf_gamma(mu+2)/(sqrt(M_PI)*pow(alpha,2*n+1)*pow(2,4*n+2*mu+4)*(mu+0.5)*gsl_sf_gamma(mu+1.5)) * gsl_sf_fact(n)*gsl_sf_poch(mu,n)*gsl_sf_poch(mu+2,n)*gsl_sf_poch(2*mu+1,n)/pow(gsl_sf_poch(mu+1.5,n),2);
 	  }
 	}
-	// Nnl = ret;
+      }
+
+      if (CR == 1) {
+	for (int l = 0; l <= Lmax; l++) {
+	  double ld(l);
+	  PhinlTable::Nnl(0,l) = (1/pow(2,1 + 2*l)*(5 + 2*ld)*M_PI*gsl_sf_fact(2 + 2*l))/(1 + 2*ld);
+	  for (int n = 1; n <= Nmax; n++) {
+	    double nd(n);
+	    PhinlTable::Nnl(n,l) = PhinlTable::Nnl(n-1,l)*(nd*(2 + 2*ld + nd)*(-1 + 2*ld + 2*nd)*(5 + 2*ld + 2*nd))/(4*(1 + 2*ld + 2*nd)*(3 + 2*ld + 2*nd));
+	    //double old = M_PI*pow(2,-1-2*l-2*n)*(2*n+2*l+5)/(1 + 2*l + 2*n) * gsl_sf_fact(n) * gsl_sf_gamma(n+2*l+3);
+	    //std::cout << "Nnl(" << n << "," << l << ") = " << PhinlTable::Nnl(n,l) << "    (old = " << old << "\n";
+	  }
+	}
+      }
+      
     }
 
     size_t PhinlTable::get_index(double r, bool check) const {
@@ -232,21 +243,27 @@ namespace helfem {
 
 	  arma::vec laguerre_polys(genlaguerre_n(Nmaxmax, 2*ld+4, 2*r)); // all the Laguerre polynomials that we want to use with both the forwards and backwards recursion scheme
 	  
-	  //arma::vec forwards_norm(Nmaxmax+1); // pre-factor that ensures phinl is real-valued and monically-normalised
-	  arma::vec forwards_norm(Nmax+1); // pre-factor that ensures phinl is real-valued and monically-normalised
+	  //arma::vec forwards_prefactor(Nmaxmax+1); // pre-factor that ensures phinl is real-valued and monically-normalised
+	  arma::vec forwards_prefactor(Nmax+1); // pre-factor that ensures phinl is real-valued and monically-normalised
+	  forwards_prefactor[0] = 1.0;
 	  
-	  for (int i = 0; i <= Nmax; i++) {
+	  for (int i = 1; i <= Nmax; i++) {
 	    double id(i);
-	    forwards_norm[i] = pow(2,i)*gsl_sf_poch(ld+0.5,i)*gsl_sf_poch(l+2,i)/gsl_sf_poch(i+2*l+3,i);
+	    forwards_prefactor[i] = forwards_prefactor[i-1]*(id/2 + ld + (-1 + id)/(1 + 2*id + 2*ld));
+	    //double old = pow(2,i)*gsl_sf_poch(ld+0.5,i)*gsl_sf_poch(l+2,i)/gsl_sf_poch(i+2*l+3,i);
+	    //std::cout << "forwards_prefactor(" << i << ") = " << forwards_prefactor[i] << "    (old = " << old << "\n";
 	  }
 
-	  //std::cout << "Slater forwards_norm=\n" << forwards_norm;
+	  //std::cout << "Slater forwards_prefactor=\n" << forwards_prefactor;
 	  
 	  arma::vec forwards_poly_prefactors(Nmaxmax+1);
-	  
-	  for (int i = 0; i <= Nmaxmax; i++) {
+	  forwards_poly_prefactors[0] = (8*(5 + 2*ld)*M_PI)/((2 + ld)*(1 + 2*ld)*(3 + 2*ld));
+
+	  for (int i = 1; i <= Nmaxmax; i++) {
 	    double id(i);
-	    forwards_poly_prefactors[i] = minusonepow(i)*8*M_PI*gsl_sf_fact(id)*(2*id + 2*ld + 5)/((2*ld+1)*(ld+2)*(2*ld+3)*gsl_sf_poch(2*l+5,i));
+	    forwards_poly_prefactors[i] = forwards_poly_prefactors[i-1] * (-((id*(5 + 2*id + 2*ld))/((4 + id + 2*ld)*(3 + 2*id + 2*ld))));
+	    //double old = minusonepow(i)*8*M_PI*gsl_sf_fact(id)*(2*id + 2*ld + 5)/((2*ld+1)*(ld+2)*(2*ld+3)*gsl_sf_poch(2*l+5,i));
+	    //std::cout << "forwards_poly_prefactors(" << i << ") = " << forwards_poly_prefactors[i] << "    (old = " << old << "\n";
 	  }
 	  
 	  //std::cout << "Slater forwards_poly_prefactors=\n" << forwards_poly_prefactors;
@@ -294,8 +311,8 @@ namespace helfem {
 	    forwards_eval[i] = forwards_eval[i-2] + forwards_poly_r_factor*forwards_poly_prefactors[i-2]*laguerre_polys[i-2];
 	  }
 
-	  //forwards_eval = forwards_eval % forwards_norm.subvec(0,Nmax);
-	  forwards_eval = forwards_eval % forwards_norm;
+	  //forwards_eval = forwards_eval % forwards_prefactor.subvec(0,Nmax);
+	  forwards_eval = forwards_eval % forwards_prefactor;
 	  
 	  arma::vec backwards_eval(Nmaxmax+1);
 	  
@@ -307,10 +324,10 @@ namespace helfem {
 	  }
 	  
 	  //arma::vec backwards_eval_subvec(n+1);
-	  //backwards_eval_subvec = backwards_eval.subvec(0,n) % forwards_norm.subvec(0,n);
+	  //backwards_eval_subvec = backwards_eval.subvec(0,n) % forwards_prefactor.subvec(0,n);
 
-	  //arma::vec backwards_eval_subvec(backwards_eval.subvec(0,Nmax) % forwards_norm.subvec(0,Nmax));
-	  arma::vec backwards_eval_subvec(backwards_eval.subvec(0,Nmax) % forwards_norm); // contains phinl evaluated via backwards recurrence
+	  //arma::vec backwards_eval_subvec(backwards_eval.subvec(0,Nmax) % forwards_prefactor.subvec(0,Nmax));
+	  arma::vec backwards_eval_subvec(backwards_eval.subvec(0,Nmax) % forwards_prefactor); // contains phinl evaluated via backwards recurrence (same prefactor as forwards_eval because it's the same recurrence relation)
 
 	  // Now decide which combinations of (n,l,r) get which method of evaluation
 	  // (technically we were wasteful in that we've already computed all 3 methods for each (n,l,r), but it was all vectorised enough that hopefully we still win on performance)
