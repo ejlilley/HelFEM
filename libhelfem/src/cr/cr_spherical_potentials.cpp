@@ -399,6 +399,9 @@ namespace helfem {
       return stor[get_index(r)].Phinl;
     }
 
+    int PhinlTable::get_Nmax() {
+      return Nmax;
+    }
 
     bool operator<(const iknl_table_t & lh, const iknl_table_t & rh) {
       return lh.r < rh.r;

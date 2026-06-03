@@ -5,6 +5,7 @@
 #include "../../libhelfem/include/cr/cr_integrals.h"
 //#include "cr_spherical_potentials.h"
 #include "../../libhelfem/include/cr/cr_utils.h"
+#include "../../libhelfem/include/cr/cr_spheroidal_potentials.h"
 //#include "PolynomialBasis.h"
 #include "RadialBasis.h"
 #include <helfem.h>
@@ -199,45 +200,45 @@ int main(void) {
 
 
 
-  double rmin = 2.7; double rmax = 3.1;
-
-  double rmid = 0.5*(rmax + rmin); double rlen = 0.5*(rmax - rmin);
-
-  std::cout << "rmin: " << rmin << "\trmax: " << rmax << "\trmid: " << rmid << "\trlen: " << rlen << "\n";
-
-  std::shared_ptr<const polynomial_basis::PolynomialBasis> p(pb);
-
-  int nprim = p->get_nprim();
-
-  int Nmax = 25;
-
-  int L = 10;
-
-  double rs = 1.5;
-
-  helfem::cr::PhinlTable phinl(0,Nmax,L,0.5);
-  helfem::cr::IknlTable iknl(0,2*nprim-2,Nmax,L,0.5);
-
-  arma::mat ints_orig(helfem::cr::twoe_integral_wrk(rmin, rmax, p, iknl, L, rs));
-  
-  std::cout << "ints (original method):\n" << ints_orig << "\n";
-  
-  // arma::vec ints(helfem::cr::IBF0l_quadrature(rmin, rmax, L, x, wx, phinl, p, rs));
-  // 
-  // std::cout << "ints:\n" << ints << "\n";
-  // 
-  // std::cout << "ratio:\n" << ints/ints_orig << "\n";
-
-
-  arma::mat ints(helfem::cr::IBFnl_quadrature(rmin, rmax, x, wx, phinl, p, rs));
-  
-  arma::mat intsL(ints.cols((Nmax+1)*L,(Nmax+1)*(L+1)-1));
-
-  //std::cout << "ints:\n" << ints << "\n";
-
-  std::cout << "ints:\n" << intsL << "\n";
-
-  std::cout << "ratio:\n" << intsL/ints_orig << "\n";
+//  double rmin = 2.7; double rmax = 3.1;
+//
+//  double rmid = 0.5*(rmax + rmin); double rlen = 0.5*(rmax - rmin);
+//
+//  std::cout << "rmin: " << rmin << "\trmax: " << rmax << "\trmid: " << rmid << "\trlen: " << rlen << "\n";
+//
+//  std::shared_ptr<const polynomial_basis::PolynomialBasis> p(pb);
+//
+//  int nprim = p->get_nprim();
+//
+//  int Nmax = 25;
+//
+//  int L = 10;
+//
+//  double rs = 1.5;
+//
+//  helfem::cr::PhinlTable phinl(0,Nmax,L,0.5);
+//  helfem::cr::IknlTable iknl(0,2*nprim-2,Nmax,L,0.5);
+//
+//  arma::mat ints_orig(helfem::cr::twoe_integral_wrk(rmin, rmax, p, iknl, L, rs));
+//  
+//  std::cout << "ints (original method):\n" << ints_orig << "\n";
+//  
+//  // arma::vec ints(helfem::cr::IBF0l_quadrature(rmin, rmax, L, x, wx, phinl, p, rs));
+//  // 
+//  // std::cout << "ints:\n" << ints << "\n";
+//  // 
+//  // std::cout << "ratio:\n" << ints/ints_orig << "\n";
+//
+//
+//  arma::mat ints(helfem::cr::IBFnl_quadrature(rmin, rmax, x, wx, phinl, p, rs));
+//  
+//  arma::mat intsL(ints.cols((Nmax+1)*L,(Nmax+1)*(L+1)-1));
+//
+//  //std::cout << "ints:\n" << ints << "\n";
+//
+//  std::cout << "ints:\n" << intsL << "\n";
+//
+//  std::cout << "ratio:\n" << intsL/ints_orig << "\n";
 
 
 //  double Lfac=(4.0*M_PI/(2*L+1))/2.0; // the extra /2.0 here is mysterious!
@@ -307,6 +308,48 @@ int main(void) {
 //  std::cout << "cr twoe n slices: " << cr_twoe.n_slices << "\n";
 //  std::cout << "cr twoe:\n" << cr_twoe << "\n";
 //
+
+
+  int n(4); double a(3.2); double b(4.6);
+  //arma::vec xs({0.0, 0.5, 1.5, 3.5});
+  double z(4.3);
+
+  arma::vec Pn(cr::jacobi_n(n,a,b,z));
+
+  std::cout << "P_{0.." << n << "}^{(" << a << "," << b << ")}" << "(" << z << ")=\n" << Pn;
+
+
+  int Nmax = 20; int Lmax = 10; int Mmax = 10;
+
+  helfem::cr::PhinlmTable phinlm(0,Nmax,Lmax,Mmax,1.0);
+
+  double mu(1.3); phinlm.compute(mu);
+
+  for (int l = 0; l <= Lmax; l++) {
+    for (int m = 0; m <= Mmax && m <= l; m++) {
+      for (int n = 0; n <= Nmax; n++) {
+	std::cout << "phinlm(" << n << "," << l << "," << m << ")(" << mu << ") = " << phinlm.get_Phinlm(n,l,m,mu) << "\n";
+      }
+    }
+  }
+
+  arma::cube Nnlm(phinlm.get_Nnlm());
+
+  for (int l = 0; l <= Lmax; l++) {
+    for (int m = 0; m <= Mmax && m <= l; m++) {
+      for (int n = 0; n <= Nmax; n++) {
+	std::cout << "Nnlm(" << n << "," << l << "," << m << ") = " << Nnlm(n,l,m) << "\n";
+      }
+    }
+  }
+
+  for (int l = 0; l <= Lmax; l++) {
+    for (int m = 0; m <= Mmax && m <= l; m++) {
+      for (int n = 0; n <= Nmax; n++) {
+	std::cout << "normed phinlm(" << n << "," << l << "," << m << ")(" << mu << ") = " << phinlm.get_Phinlm(n,l,m,mu)/sqrt(Nnlm(n,l,m)) << "\n";
+      }
+    }
+  }
 
 
   return 0;

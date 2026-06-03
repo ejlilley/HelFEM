@@ -64,6 +64,8 @@ namespace helfem {
       arma::vec get_Phinl(int n, int l, const arma::vec & r) const;
       arma::mat get_Phinl(double r) const;
 
+      int get_Nmax();
+
     };
 
     typedef struct {

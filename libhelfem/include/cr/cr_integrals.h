@@ -6,14 +6,14 @@
 namespace helfem {
   namespace cr {
 
-    // arma::mat twoe_integral(double rmin, double rmax, const arma::vec & x, const arma::vec & wx, const std::shared_ptr<const polynomial_basis::PolynomialBasis> & poly, int L);
     arma::mat twoe_integral_pairs(double rmin, double rmax, const std::shared_ptr<const polynomial_basis::PolynomialBasis> & poly, int nmax, int L, double rs);
 
     arma::mat twoe_integral(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel);
 
     arma::mat twoe_integral_wrk(double rmin, double rmax, const std::shared_ptr<const polynomial_basis::PolynomialBasis> & pb, IknlTable & iknl, int L, double rs);
 
-    arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx);
+    //arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx);
+    arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, PhinlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx);
 
     arma::vec psi_monomial_coeffs(int i, int j, const arma::vec & r0);
 

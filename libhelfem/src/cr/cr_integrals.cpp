@@ -96,63 +96,33 @@ namespace helfem {
       arma::vec nodes = poly->get_nodes();
       arma::vec rnodes(rmid*arma::ones<arma::vec>(nodes.n_elem)+rlen*nodes);
 
-      //std::cout << "nodes =\n" << nodes << "\n";
-      //std::cout << "rnodes =\n" << rnodes << "\n";
-
       int nnodes = rnodes.n_elem;
       int nprim = poly->get_nprim();
       int ndeg = 2*nprim - 2; // maximum polynomial degree of product of basis funs (= Kmax)
-      // int nmax = 50;
-
-      //std::cout << "nnodes = " << nnodes << "\n";
-      //std::cout << "nprim = " << nprim << "\n";
-      //std::cout << "ndeg = " << ndeg << "\n";
-      //std::cout << "nmax = " << nmax << "\n";
 
       cr::IknlTable iknl(0,ndeg,nmax,L,0.5);
 
-      // arma::vec::iterator it     = rnodes.begin();
-      // arma::vec::iterator it_end = rnodes.end();
-// for(; it != it_end; ++it)  {
       iknl.compute(rmin/rs);
       iknl.compute(rmax/rs);
-   //    }
 
       arma::mat Nnl(iknl.get_Nnl());
 
       arma::cube bijk(nnodes,nnodes,ndeg+1);
 
-//       bijk.tube(0,0) = psi_prefactor(0, 0, rnodes)*psi_monomial_coeffs(0, 0, rnodes);
-//       std::cout << "bijk(" << 0 << "," << 0 << ") =" << bijk.tube(0,0) << "\n";
 
       for (int i = 0; i < nnodes; i++) {
 	for (int j = 0; j < nnodes; j++) {
 	  bijk.tube(i,j) = psi_prefactor(i, j, rnodes)*psi_monomial_coeffs(i, j, rnodes);
-	  //std::cout << "bijk(" << i << "," << j << ") =" << bijk.tube(i,j) << "\n";
 	}
       }
 
 
       arma::cube cijnl(nprim,nprim,nmax+1,arma::fill::zeros);
 
-      //std::cout << "cijnl.n_rows = " << cijnl.n_rows << "\n";
-      //std::cout << "cijnl.n_cols = " << cijnl.n_cols << "\n";
-      //std::cout << "cijnl.n_slices = " << cijnl.n_slices << "\n";
-
-
-//      for (int n = 0; n <= nmax; n++) {
-//	for (int k = 0; k <= ndeg; k++) {
-//	  cijnl(0,0,n) += bijk(0,0,k) * (iknl.get_Iknl(k,n,L,rmax) - iknl.get_Iknl(k,n,L,rmin));
-//	  //std::cout << "(k=" << k << ")    cijnl(" << 0 << "," << 0 << "," << n << ") +=" << bijk(0,0,k) << "*(" << iknl.get_Iknl(k,n,L,rmax) << " - " << iknl.get_Iknl(k,n,L,rmin) << ") = " << bijk(0,0,k) * (iknl.get_Iknl(k,n,L,rmax) - iknl.get_Iknl(k,n,L,rmin)) << "\n";
-//	}
-//      }
-
-
       for (int n = 0; n <= nmax; n++) {
 	for (int i = 0; i < nprim; i++) {
 	  for (int j = 0; j < nprim; j++) {
 	    for (int k = 0; k <= ndeg; k++) {
-	      // std::cout << "cijnl(" << i << "," << j << "," << n << ") +=" << bijk(i,j,k) << "*(" << iknl.get_Iknl(k,n,L,rmax) << " - " << iknl.get_Iknl(k,n,L,rmin) << ") = " << bijk(i,j,k) * (iknl.get_Iknl(k,n,L,rmax) - iknl.get_Iknl(k,n,L,rmin)) << "\n";
 	      cijnl(i,j,n) += bijk(i,j,k) * pow(rs,k+0.5) * (iknl.get_Iknl(k,n,L,rmax/rs) - iknl.get_Iknl(k,n,L,rmin/rs));
 	    }
 	  }
@@ -163,18 +133,6 @@ namespace helfem {
       
       arma::mat twoe_ints(nprim*nprim,nprim*nprim,arma::fill::zeros);
       
-      //std::cout << "twoe_ints.n_rows = " << twoe_ints.n_rows << "\n";
-      //std::cout << "twoe_ints.n_cols = " << twoe_ints.n_cols << "\n";
-
-
-//      arma::vec foo(cijnl.tube(0,0));
-//      arma::vec bar(cijnl.tube(0,0));
-//      arma::vec baz = foo % bar / Nnl;
-//      std::cout << "two_ints(" << 0 << "," << 0 << "," << 0 << "," << 0 << ") = " << arma::sum(baz) << "\n";
-//      twoe_ints(0,0) = arma::sum(baz);
-
-
-
       for (int i = 0; i < nprim; i++) {
 	for (int j = 0; j < nprim; j++) {
 	  for (int k = 0; k < nprim; k++) {
@@ -195,7 +153,8 @@ namespace helfem {
     }
 
 
-    arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx) {
+    //    arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx) {
+    arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, PhinlTable & phinl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx) {
       double rmin(fem.element_begin(iel));
       double rmax(fem.element_end(iel));
 
@@ -205,9 +164,10 @@ namespace helfem {
       //
       //::lobatto_compute(quadnodes, x, wx);
 
-      cr::PhinlTable phinl(iknl.phinl);
+      //cr::PhinlTable phinl(iknl.phinl);
 
-      int Nmax = iknl.get_Nmax();
+      //int Nmax = iknl.get_Nmax();
+      int Nmax = phinl.get_Nmax();
 
       arma::mat ints(IBFnl_quadrature(rmin, rmax, x, wx, phinl, pb, rs));
   

@@ -1018,14 +1018,20 @@ namespace helfem {
         //std::vector< std::vector<arma::vec> > Paux_cr(2*arma::max(lval)+1);
 	std::vector< std::vector<arma::mat> > Paux_cr2(2*arma::max(lval)+1);
 	std::vector< std::vector<arma::vec> > Paux_cr3(2*arma::max(lval)+1);
+        std::vector< std::vector<arma::mat> > Jaux_cr(2*arma::max(lval)+1);
+        //std::vector< std::vector<arma::mat> > Jaux_cr2(2*arma::max(lval)+1);
         for(int L=0;L<(int) Paux_cr2.size();L++) {
           //Paux_cr[L].resize(2*Mmax+1);
 	  Paux_cr2[L].resize(2*Mmax+1);
 	  Paux_cr3[L].resize(2*Mmax+1);
+          Jaux_cr[L].resize(2*Mmax+1);
+          //Jaux_cr2[L].resize(2*Mmax+1);
           for(int M=-std::min(L,Mmax);M<=std::min(L,Mmax);M++) {
             //Paux_cr[L][M+Mmax].zeros(Nmax+1);
 	    Paux_cr2[L][M+Mmax].zeros(Nrad,Nrad);
 	    Paux_cr3[L][M+Mmax].zeros(Nmax+1);
+            Jaux_cr[L][M+Mmax].zeros(Nrad,Nrad);
+            //Jaux_cr2[L][M+Mmax].zeros(Nrad,Nrad);
           }
         }
 
@@ -1094,18 +1100,6 @@ namespace helfem {
 	  }
 	}
 
-
-
-        std::vector< std::vector<arma::mat> > Jaux_cr(2*arma::max(lval)+1);
-        for(int L=0;L<(int) Jaux_cr.size();L++) {
-          Jaux_cr[L].resize(2*Mmax+1);
-          for(int M=-std::min(L,Mmax);M<=std::min(L,Mmax);M++) {
-            Jaux_cr[L][M+Mmax].zeros(Nrad,Nrad);
-          }
-        }
-
-
-
 	for(int L=0;L<(int) Jaux_cr.size();L++) {
 	  for(int M=-std::min(L,Mmax);M<=std::min(L,Mmax);M++) {
 	    for(size_t iel=0;iel<Nel;iel++) {
@@ -1116,6 +1110,10 @@ namespace helfem {
 	      Jaux_cr[L][M+Mmax].submat(ifirst,ifirst,ilast,ilast) += arma::reshape(prim_tei_cr[Nel*L + iel] * Paux_cr3[L][M+Mmax], Ni, Ni);
 
 	    }
+
+	    std::cout << "Jaux_cr[" << L << "][" << M+Mmax << "]:\n" << Jaux_cr[L][M+Mmax];
+	    //std::cout << "Jaux_cr2[" << L << "][" << M+Mmax << "]:\n" << Jaux_cr2[L][M+Mmax];
+
 	  }
 	}
 
