@@ -15,5 +15,7 @@ namespace helfem {
 
     arma::vec genlaguerre_n(int n, double a, double x);
 
+    arma::vec jacobi_n(int n, double a, double b, double x);
+
   }
 }

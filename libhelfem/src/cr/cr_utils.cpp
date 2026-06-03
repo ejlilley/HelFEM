@@ -115,7 +115,7 @@ namespace helfem {
       p2[1] = p;
 
       int k;
-      int kk;
+      //int kk;
 
       for (int kk = 0; kk <= n-2; kk++) {
 	k = kk+1;
@@ -133,6 +133,48 @@ namespace helfem {
       return bi2 % p2;
     }
 
+    arma::vec jacobi_n(int n, double a, double b, double x) {
+      // A vector of Jacobi polynomials of orders 0...n, each
+      // evaluated with the same argument (x) and parameters (a,b)
+      if (n == 0) {
+	return {1.0};
+      }
+
+      if (n == 1) {
+	return {1.0, 0.5*(2*(a+1)+(a+b+2)*(x-1))};
+      }
+
+      arma::vec bi2(n+1);
+      bi2[0] = 1.0;
+
+      //double d(-x/(a+1));
+      //double p(d+1);
+      arma::vec p2(n+1);
+
+      double d((a+b+2)*(x - 1) / (2*(a+1)));
+      double p(d + 1);
+      double t;
+      int k;
+
+      p2[0] = 1.0;
+      p2[1] = p;
+
+      for (int kk = 0; kk <= n-2; kk++) {
+	k = kk+1;
+	t = 2*k+a+b;
+	d = ((t*(t+1)*(t+2))*(x-1)*p + 2*k*(k+b)*(t+2)*d) / (2*(k+a+1)*(k+a+b+1)*t);
+	p = d + p;
+	p2[k+1] = p;
+      }
+      
+      double bi(1.0);
+      for (int i = 1; i <= n; i++) {
+	bi = bi*(a+i)/i;
+	bi2[i] = bi;
+      }
+
+      return bi2 % p2;
+    }
 
   }
 }
