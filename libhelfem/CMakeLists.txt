@@ -15,6 +15,7 @@ list(APPEND LIBHELFEM_PUBLIC_HEADERS
     "RegularizedNucleus.h"
     "cr/cr_utils.h"
     "cr/cr_spherical_potentials.h"
+    "cr/cr_spheroidal_potentials.h"
     "cr/cr_integrals.h"
 )
 foreach(header IN LISTS LIBHELFEM_PUBLIC_HEADERS)
@@ -47,6 +48,7 @@ add_library(helfem
     src/RadialBasis.cpp
     src/cr/cr_utils.cpp
     src/cr/cr_spherical_potentials.cpp
+    src/cr/cr_spheroidal_potentials.cpp
     src/cr/cr_integrals.cpp
 )
 target_include_directories(helfem PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
