@@ -79,6 +79,7 @@ namespace helfem {
     }
 
 
+    // the index order is actually (l,m,n)
     arma::cube PhinlmTable::get_Nnlm() {
       if (!PhinlmTable::Nnlm.size()) {
 	PhinlmTable::compute_Nnlm();
@@ -88,7 +89,7 @@ namespace helfem {
     }
 
     void PhinlmTable::compute_Nnlm() {
-      PhinlmTable::Nnlm.resize(Nmax+1,Lmax+1,Mmax+1);
+      PhinlmTable::Nnlm.resize(Lmax+1,Mmax+1,Nmax+1);
 
       if (CR == 0) { // does NOT include spherical harmonic normalisation factor Jlm
 	for (int l = 0; l <= Lmax; l++) {
@@ -96,11 +97,11 @@ namespace helfem {
 	  for (int m = 0; m <= l && m <= Mmax; m++) {
 	    double md(abs(m));
 
-	    PhinlmTable::Nnlm(0,l,m) = (1+ld+md)*(2+ld+md)*gsl_sf_beta(ld+1.5,md+1)/(8*M_PI*pow(Rh,4));
+	    PhinlmTable::Nnlm(l,m,0) = (1+ld+md)*(2+ld+md)*gsl_sf_beta(ld+1.5,md+1)/(8*M_PI*pow(Rh,4));
 
 	    for (int n = 1; n <= Nmax; n++) {
 	      double nd(n);
-	      PhinlmTable::Nnlm(n,l,m) = PhinlmTable::Nnlm(n-1,l,m)*(nd*(md + nd)*(1 + 2*ld + 2*nd)*(-1 + ld + md + 2*nd)*(ld + md + 2*nd)*(1 + ld + md + 2*nd)*(2 + ld + md + 2*nd)*(1 + 2*ld + 2*md + 2*nd))/(4*(-1 + 2*ld + 2*md + 4*nd)*pow(1 + 2*ld + 2*md + 4*nd,2)*(3 + 2*ld + 2*md + 4*nd));
+	      PhinlmTable::Nnlm(l,m,n) = PhinlmTable::Nnlm(l,m,n-1)*(nd*(md + nd)*(1 + 2*ld + 2*nd)*(-1 + ld + md + 2*nd)*(ld + md + 2*nd)*(1 + ld + md + 2*nd)*(2 + ld + md + 2*nd)*(1 + 2*ld + 2*md + 2*nd))/(4*(-1 + 2*ld + 2*md + 4*nd)*pow(1 + 2*ld + 2*md + 4*nd,2)*(3 + 2*ld + 2*md + 4*nd));
 	    }
 	    
 	  }
@@ -133,6 +134,8 @@ namespace helfem {
 
 
     void PhinlmTable::compute(double mu) {
+      //std::cout << "computing Phinlm for mu=" << mu << "\n";
+
       // This routine could also be trivially parallelised w.r.t. mu
       phinlm_table_t entry;
 
@@ -192,22 +195,36 @@ namespace helfem {
     
     
     double PhinlmTable::get_Phinlm(int n, int l, int m, double mu) const {
+      if (n > Nmax) {
+        std::ostringstream oss;
+	oss << "Error in get_Phinlm(" << n << "," << l << "," << m << "," << mu << "): n (=" << n << ") greater than Nmax (=" << Nmax << ")!\n";
+      }
+      if (l > Lmax) {
+        std::ostringstream oss;
+	oss << "Error in get_Phinlm(" << n << "," << l << "," << m << "," << mu << "): l (=" << l << ") greater than Lmax (=" << Lmax << ")!\n";
+      }
+      if ((abs(m) > Mmax) || (abs(m) > Lmax)) {
+        std::ostringstream oss;
+	oss << "Error in get_Phinlm(" << n << "," << l << "," << m << "," << mu << "): abs(m) (=" << abs(m) << ") greater than Mmax (=" << Mmax << ") or Lmax (=" << Lmax << ")!\n";
+      }
       if(get_index(mu)>stor.size()) {
         std::ostringstream oss;
         oss << "Error in get_Phinlm(" << n << "," << l << "," << m << "," << mu << "): index " << get_index(mu) << " greater than array size " << stor.size() << "!\n";
         throw std::logic_error(oss.str());
       }
-      return stor[get_index(mu)].Phinlm(l,m,n);
+      return stor[get_index(mu)].Phinlm(l,abs(m),n);
     }
 
 
     arma::vec PhinlmTable::get_Phinlm(int n, int l, int m, const arma::vec & mu) const {
       arma::vec phinlm_vec(mu.n_elem);
+      //std::cout << "get_Phinlm(" << n << "," << l << "," << m << ") (mu vec)\n";
       for(size_t i=0;i<mu.n_elem;i++)
-        phinlm_vec(i)=get_Phinlm(l,m,n,mu(i));
+        phinlm_vec(i)=get_Phinlm(n,l,m,mu(i));
       return phinlm_vec;
     }
 
+    // the index order is actually (l,m,n)
     arma::cube PhinlmTable::get_Phinlm(double mu) const {
       if(get_index(mu)>stor.size()) {
         std::ostringstream oss;
@@ -215,6 +232,22 @@ namespace helfem {
         throw std::logic_error(oss.str());
       }
       return stor[get_index(mu)].Phinlm;
+    }
+
+    int PhinlmTable::get_Nmax() {
+      return Nmax;
+    }
+
+    int PhinlmTable::get_Lmax() {
+      return Lmax;
+    }
+
+    int PhinlmTable::get_Mmax() {
+      return Mmax;
+    }
+
+    double PhinlmTable::get_Rh() {
+      return Rh;
     }
 
   }

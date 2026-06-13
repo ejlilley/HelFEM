@@ -20,6 +20,7 @@
 #include "FiniteElementBasis.h"
 #include "../general/gaunt.h"
 #include "../general/legendretable.h"
+#include "../../libhelfem/include/cr/cr_spheroidal_potentials.h"
 
 namespace helfem {
   namespace diatomic {
@@ -83,7 +84,9 @@ namespace helfem {
         arma::mat Qlm_integral(int alpha, size_t iel, int L, int M, const legendretable::LegendreTable & legtab) const;
         /// Compute primitive two-electron integral
         arma::mat twoe_integral(int alpha, int beta, size_t iel, int L, int M, const legendretable::LegendreTable & legtab) const;
-
+        /// Compute primitive two-electron integral for CR
+	arma::mat twoe_integral_cr(int alpha, size_t iel, int L, int M, cr::PhinlmTable & phinlm) const;
+	
         /// Get quadrature points
         arma::vec get_chmu_quad() const;
         /// Evaluate basis functions at quadrature points
@@ -141,6 +144,12 @@ namespace helfem {
         std::vector<arma::mat> prim_tei00, prim_tei02, prim_tei20, prim_tei22;
         /// Primitive two-electron integrals: <Nel^2 * N_L> sorted for exchange
         std::vector<arma::mat> prim_ktei00, prim_ktei02, prim_ktei20, prim_ktei22;
+
+        /// Primitive two-electron CR integrals: <Nel * lmmap> ((nnodes-1)^2, Nmax+1)
+        std::vector<arma::mat> prim_tei_cr0, prim_tei_cr2;
+
+        /// Number of CR basis functions
+	int Nmax;
 
         /// Add to radial submatrix
         void add_sub(arma::mat & M, size_t iang, size_t jang, const arma::mat & Msub) const;
@@ -204,6 +213,9 @@ namespace helfem {
         /// Compute two-electron integrals
         void compute_tei(bool exchange);
 
+	/// Compute two-electron integrals for CR
+        void compute_tei_cr(int CR);
+
         /// Number of basis functions
         size_t Nbf() const;
         /// Number of dummy basis functions
@@ -213,6 +225,10 @@ namespace helfem {
         size_t Nrad() const;
         /// Number of angular shells
         size_t Nang() const;
+
+        /// Number of CR basis functions
+        int get_Nmax() const;
+        void set_Nmax(int n);
 
         /// Form half-overlap matrix
         arma::mat Shalf(bool chol, int sym) const;
@@ -247,6 +263,11 @@ namespace helfem {
         arma::mat coulomb(const arma::mat & P) const;
         /// Form exchange matrix
         arma::mat exchange(const arma::mat & P) const;
+
+        /// Form Coulomb matrix
+        arma::mat coulomb_cr(const arma::mat & P) const;
+        /// Form exchange matrix
+        // arma::mat exchange(const arma::mat & P) const;
 
         /// Get primitive integrals
         std::vector<arma::mat> get_prim_tei() const;

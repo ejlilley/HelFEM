@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nelem", 0, "number of elements", true);
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
+  parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (Nmax)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
   parser.add<double>("Ez", 0, "electric dipole field", false, 0.0);
@@ -161,6 +162,8 @@ int main(int argc, char **argv) {
   std::string lmax(parser.get<std::string>("lmax"));
   int mmax(parser.get<int>("mmax"));
   int lpad(parser.get<int>("lpad"));
+
+  int Nmax(parser.get<int>("nmax"));
 
   // DFT angular grid
   int ldft(parser.get<int>("ldft"));
@@ -767,6 +770,10 @@ int main(int argc, char **argv) {
   basis.compute_tei(kfrac!=0.0);
   printf("Done in %.6f\n",timer.get());
 
+  basis.set_Nmax(Nmax);
+  int CR(0);
+  basis.compute_tei_cr(CR);
+
   double Ekin=0.0, Epot=0.0, Ecoul=0.0, Exx=0.0, Exc=0.0, Eefield=0.0, Emfield=0.0, Etot=0.0;
   double Eold=0.0;
 
@@ -810,10 +817,17 @@ int main(int argc, char **argv) {
     arma::mat J(basis.coulomb(P));
     double tJ(timer.get());
     Ecoul=0.5*arma::trace(P*J);
-    printf("Coulomb energy %.10e % .6f\n",Ecoul,tJ);
+    printf("Coulomb energy %.10e % .6f\t",Ecoul,tJ);
     fflush(stdout);
     chkpt.write("J",J);
     chkpt.write("Ecoul",Ecoul);
+
+    timer.set();
+    arma::mat J_cr(basis.coulomb_cr(P));
+    double tJ_cr(timer.get());
+    double Ecoul_cr=0.5*arma::trace(P*J_cr);
+    printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
+    printf("Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr/Ecoul-1)));
 
     // Form exchange matrix
     timer.set();

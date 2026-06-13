@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cfloat>
+#include "../../libhelfem/include/cr/cr_integrals.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -222,6 +223,17 @@ namespace helfem {
         // Integral by quadrature
         std::shared_ptr<const helfem::polynomial_basis::PolynomialBasis> p(fem.get_basis(iel));
         arma::mat tei(quadrature::twoe_integral(mumin,mumax,alpha,beta,xq,wq,p,L,M,legtab));
+
+        return tei;
+      }
+
+      arma::mat RadialBasis::twoe_integral_cr(int alpha, size_t iel, int L, int M, cr::PhinlmTable & phinlm) const {
+
+        // Integral by quadrature
+        std::shared_ptr<const helfem::polynomial_basis::PolynomialBasis> p(fem.get_basis(iel));
+	arma::mat tei(helfem::cr::twoe_integral_quadrature_diatomic(fem, phinlm, L, M, alpha, iel, xq, wq));
+	// std::cout << "computing CR tei for iel=" << iel << " L=" << L << " M=" << M << " alpha=" << alpha << " ";
+	// std::cout << "tei.n_rows=" << tei.n_rows << " tei.n_cols=" << tei.n_cols << "\n";
 
         return tei;
       }
@@ -1301,6 +1313,42 @@ namespace helfem {
         }
       }
 
+      void TwoDBasis::compute_tei_cr(int CR) {
+	size_t Nel(radial.Nel());
+
+	prim_tei_cr0.resize(Nel*lm_map.size());
+        prim_tei_cr2.resize(Nel*lm_map.size());
+
+	int Nmax(TwoDBasis::get_Nmax());
+	int Lmax(lm_map[lm_map.size()-1].first);
+	int Mmax(lm_map[lm_map.size()-1].second);
+
+	std::cout << "CR(" << CR << ") (prolate spheroidal): Nmax=" << Nmax << " Lmax=" << Lmax << " Mmax=" << Mmax << " Rh=" << Rhalf << "\n";
+
+	cr::PhinlmTable phinlm(CR,Nmax,Lmax,abs(Mmax),Rhalf);
+
+	for(size_t ilm=0;ilm<lm_map.size();ilm++) {
+          int L(lm_map[ilm].first);
+          int M(lm_map[ilm].second);
+
+          for(size_t iel=0;iel<Nel;iel++) {
+
+	    //std::cout << "computing CR tei for iel=" << iel << " L=" << L << " M=" << M << "\n";
+	    
+            // Index in array
+            {
+              const size_t idx(Nel*ilm + iel);
+
+              // In-element integrals
+              prim_tei_cr0[idx]=radial.twoe_integral_cr(0,iel,L,M,phinlm);
+              prim_tei_cr2[idx]=radial.twoe_integral_cr(2,iel,L,M,phinlm);
+            }
+	  }
+	}
+
+
+      }
+
       size_t TwoDBasis::lmind(int L, int M, bool check) const {
         // Switch to |M|
         M=std::abs(M);
@@ -1523,11 +1571,216 @@ namespace helfem {
                 J.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1)+=cpl2*Jaux2[iLM];
               }
             }
-          }
+           }
         }
 
         return remove_boundaries(J);
       }
+
+      arma::mat TwoDBasis::coulomb_cr(const arma::mat & P0) const {
+        if(!prim_tei_cr0.size())
+          throw std::logic_error("Primitive CR teis have not been computed!\n");
+
+        // Extend to boundaries
+        arma::mat P(expand_boundaries(P0));
+
+        // Number of radial elements
+        size_t Nel(radial.Nel());
+        // Number of radial functions
+        size_t Nrad(radial.Nbf());
+	// Number of CR radial basis functions
+	int Nmax = TwoDBasis::get_Nmax();
+
+	// std::cout << "Nel=" << Nel << " Nrad=" << Nrad << " Nmax=" << Nmax << "\n";
+	
+	std::vector<arma::mat> Paux0_cr(LM_map.size());
+	std::vector<arma::mat> Paux2_cr(LM_map.size());
+        for(size_t i=0;i<Paux0_cr.size();i++) {
+          Paux0_cr[i].zeros(Nrad,Nrad);
+          Paux2_cr[i].zeros(Nrad,Nrad);
+	}
+
+	std::vector<arma::vec> Paux_cr(LM_map.size());
+	for(size_t i=0;i<Paux_cr.size();i++) {
+	  Paux_cr[i].zeros(Nmax+1);
+	}
+
+	std::vector<arma::mat> Jaux0_cr(LM_map.size());
+	std::vector<arma::mat> Jaux2_cr(LM_map.size());
+	for(size_t i=0;i<Jaux0_cr.size();i++) {
+          Jaux0_cr[i].zeros(Nrad,Nrad);
+          Jaux2_cr[i].zeros(Nrad,Nrad);
+        }
+
+	// Form radial helpers: contract ket
+        for(size_t kang=0;kang<lval.n_elem;kang++) {
+          for(size_t lang=0;lang<lval.n_elem;lang++) {
+            // l and m values
+            int lk(lval(kang));
+            int mk(mval(kang));
+            int ll(lval(lang));
+            int ml(mval(lang));
+            // RH m value
+            int M(mk-ml);
+            // M values match. Loop over possible couplings
+            int Lmin=std::max(std::abs(lk-ll)-2,abs(M));
+            int Lmax=lk+ll+2;
+            for(int L=Lmin;L<=Lmax;L++) {
+              const size_t iLM(LMind(L,M));
+              // Calculate coupling coefficients
+              double cpl0(gaunt.mod_coeff(lk,mk,L,M,ll,ml));
+              double cpl2(gaunt.coeff(lk,mk,L,M,ll,ml));
+              // Increment
+              arma::mat Prad(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1));
+
+	      // std::cout << "|       P -> Paux0_cr,Paux2_cr\n";
+
+	      // std::cout << "Prad.n_rows=" << Prad.n_rows << " Prad.n_cols=" << Prad.n_cols << "\n";
+	      // std::cout << "Paux0_cr[" << iLM << "].n_rows=" << Paux0_cr[iLM].n_rows << " Paux0_cr[" << iLM << "].n_cols=" << Paux0_cr[iLM].n_cols << "\n";
+
+              if(cpl0!=0.0) {
+		Paux0_cr[iLM] += cpl0*Prad;
+	      }
+              if(cpl2!=0.0) {
+		Paux2_cr[iLM] += cpl2*Prad;
+	      }
+            }
+          }
+        }
+
+	for(size_t iLM=0;iLM<LM_map.size();iLM++) {
+	  int L(LM_map[iLM].first);
+          int M(LM_map[iLM].second);
+	  const size_t ilm(lmind(L,M));
+	  // Nnlm didn't include spherical harmonic normalisation factor, so include it here
+	  const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
+	  //const double LMfac(1.0);
+
+	  for(size_t iel=0;iel<Nel;iel++) {
+	    size_t ifirst, ilast;
+	    radial.get_idx(iel,ifirst,ilast);
+	    size_t Ni(ilast-ifirst+1);
+	    size_t idx(Nel*ilm + iel);
+	  
+	    // std::cout << "||      Paux0_cr,Paux2_cr -> Paux_cr\n";
+
+	    arma::mat submat0(arma::trans(prim_tei_cr0[idx])*arma::reshape(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1));
+	    arma::mat submat2(arma::trans(prim_tei_cr2[idx])*arma::reshape(Paux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1));
+
+	    Paux_cr[iLM] += LMfac*(submat0 - submat2);
+
+	    // std::cout << "prim_tei_cr0[" << idx << "].n_rows=" << prim_tei_cr0[idx].n_rows << " prim_tei_cr0[" << idx << "].n_cols=" << prim_tei_cr0[idx].n_cols << "\n";
+	    // arma::mat Paux0_cr_submat(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast));
+	    // std::cout << "Paux0_cr_submat.n_rows=" << Paux0_cr_submat.n_rows << " Paux0_cr_submat.n_cols=" << Paux0_cr_submat.n_cols << "\n";
+
+	    // std::cout << "submat0.n_rows=" << submat0.n_rows << " submat0.n_cols=" << submat0.n_cols << "\n";
+
+	    // std::cout << "Paux_cr[" << iLM << "].n_rows=" << Paux_cr[iLM].n_rows << "\n";
+	    //Paux0_cr2[iLM] += arma::trans(prim_tei_cr0[idx])*arma::reshape(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1);
+	    //Paux2_cr2[iLM] += arma::trans(prim_tei_cr2[idx])*arma::reshape(Paux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1);
+	    }
+	  }
+
+	for(size_t iLM=0;iLM<LM_map.size();iLM++) {
+	  int L(LM_map[iLM].first);
+          int M(LM_map[iLM].second);
+	  const size_t ilm(lmind(L,M));
+	  //const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
+	  const double LMfac(1.0);
+
+	  for(size_t iel=0;iel<Nel;iel++) {
+	    size_t ifirst, ilast;
+	    radial.get_idx(iel,ifirst,ilast);
+	    size_t Ni(ilast-ifirst+1);
+	    size_t idx(Nel*ilm + iel);
+
+	    // std::cout << "|||     Paux_cr -> Jaux0_cr,Jaux2_cr\n";
+	  
+	    Jaux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast) = LMfac*arma::reshape(prim_tei_cr0[idx] * Paux_cr[iLM], Ni, Ni);
+	    Jaux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast) = LMfac*arma::reshape(prim_tei_cr2[idx] * Paux_cr[iLM], Ni, Ni);
+
+	    // std::cout << "Paux_cr[" << iLM << "].n_rows=" << Paux_cr[iLM].n_rows << "\n";
+	    // std::cout << "prim_tei_cr0[" << idx << "].n_rows=" << prim_tei_cr0[idx].n_rows << " prim_tei_cr0[" << idx << "].n_cols=" << prim_tei_cr0[idx].n_cols << "\n";
+
+	    // arma::mat foo0;
+	    // arma::mat foo2(prim_tei_cr2[idx] * Paux_cr[iLM]);
+
+	    // std::cout << "foo0.n_rows=" << foo0.n_rows << " foo0.n_cols=" << foo0.n_cols << "\n";
+	    // std::cout << "Ni=" << Ni << "\n";
+
+	    // foo0.reshape(Ni, Ni);
+	    // foo2.reshape(Ni, Ni);
+
+	    // std::cout << "(new) foo0.n_rows=" << foo0.n_rows << " foo0.n_cols=" << foo0.n_cols << "\n";
+
+	    // size_t oldNi(Jaux0_cr[iLM].n_rows);
+	    // if (Ni != oldNi) {
+	      // std::cout << "oldNi=" << oldNi << "  Ni=" << Ni << "\n";
+	    // }
+
+	    // std::cout << "Ni=" << Ni << "\n";
+
+	    // need a reshape here because not all the elements contain Nrad basis polynomials
+	    // Jaux0_cr[iLM].reshape(Ni,Ni);
+	    // Jaux2_cr[iLM].reshape(Ni,Ni);
+
+	    // std::cout << "Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
+
+	    // Jaux0_cr[iLM] = foo0;
+	    // Jaux2_cr[iLM] = foo2;
+
+	    // std::cout << "(new) Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
+
+
+	    // Jaux0_cr[iLM] += arma::reshape(foo0, Ni, Ni);
+	    // Jaux2_cr[iLM] += arma::reshape(foo2, Ni, Ni);
+	    }
+	  }
+
+	arma::mat J_cr(Ndummy(),Ndummy());
+        J_cr.zeros();
+
+	for(size_t iang=0;iang<lval.n_elem;iang++) {
+          for(size_t jang=0;jang<lval.n_elem;jang++) {
+            // l and m values
+            int li(lval(iang));
+            int mi(mval(iang));
+            int lj(lval(jang));
+            int mj(mval(jang));
+            // LH m value
+            int M(mj-mi);
+
+            int Lmin=std::max(std::abs(lj-li)-2,abs(M));
+            int Lmax=lj+li+2;
+            for(int L=Lmin;L<=Lmax;L++) {
+	      const size_t iLM(LMind(L,M));
+
+	      // std::cout << "||||    Jaux0_cr,Jaux2_cr -> J_cr\n";
+
+              // Coupling
+
+              double cpl0(gaunt.mod_coeff(lj,mj,L,M,li,mi));
+              if(cpl0!=0.0) {
+		// std::cout << "Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
+		// arma::mat J_cr_submat(J_cr.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1));
+		// std::cout << "J_cr_submat.n_rows=" << J_cr_submat.n_rows << " J_cr_submat.n_rows=" << J_cr_submat.n_rows << "\n";
+		J_cr.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1) -= cpl0*Jaux0_cr[iLM];
+              }
+
+              double cpl2(gaunt.coeff(lj,mj,L,M,li,mi));
+              if(cpl2!=0.0) {
+		J_cr.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1) += cpl2*Jaux2_cr[iLM];
+              }
+
+            }
+          }
+        }
+
+	return (-1/(4*M_PI))*remove_boundaries(J_cr); // prefactor is ad-hoc fix
+	//return remove_boundaries(J_cr);
+
+      }
+
 
       arma::mat TwoDBasis::exchange(const arma::mat & P0) const {
         if(!prim_ktei00.size())
@@ -2043,6 +2296,20 @@ namespace helfem {
 
         return den;
       }
+
+      int TwoDBasis::get_Nmax() const {
+	if (Nmax < 0) {
+	  throw std::logic_error("CR Nmax not set!\n");
+	} else {
+	  return Nmax;
+	}
+      }
+      
+      void TwoDBasis::set_Nmax(int n) {
+	Nmax = n;
+	return;
+      }
+
     }
   }
 }

@@ -175,6 +175,91 @@ namespace helfem {
     }
     
 
+    arma::mat twoe_integral_quadrature_diatomic(const polynomial_basis::FiniteElementBasis & fem, PhinlmTable & phinlm, int L, int M, int alpha, size_t iel, const arma::vec & xq, const arma::vec & wq) {
+      std::shared_ptr<const polynomial_basis::PolynomialBasis> poly(fem.get_basis(iel));
+
+      arma::vec w(wq);
+
+      double mumin=fem.element_begin(iel);
+      double mumax=fem.element_end(iel);
+
+      double mumid = 0.5*(mumax + mumin);
+      double mulen = 0.5*(mumax - mumin);
+      int nprim = poly->get_nprim();
+      int nq = w.n_rows; // number of integral weights
+      
+      arma::vec mu = (mumid*arma::ones<arma::vec>(xq.n_rows) + mulen*xq);
+
+      // std::cout << "mu=\n" << mu;
+
+      arma::mat bf(poly->eval_dnf(xq,0,mulen));
+      arma::mat bfprod(bf.n_rows,bf.n_cols*bf.n_cols);
+
+      for(size_t fi=0;fi<bf.n_cols;fi++)
+	for(size_t fj=0;fj<bf.n_cols;fj++)
+	  bfprod.col(fi*bf.n_cols+fj)=bf.col(fi)%bf.col(fj);
+
+      arma::vec shmu(arma::sinh(mu));
+      arma::vec chmu(arma::pow(arma::cosh(mu),alpha));
+
+      w %= shmu;
+      if (alpha != 0)
+	w %= chmu;
+
+      // std::cout << "w=\n" << w;
+
+      for(size_t i=0;i<bfprod.n_cols;i++) { // multiply weights
+        bfprod.col(i) %= w;
+      }
+
+      //std::cout << "bfprod=\n" << bfprod;
+
+      arma::cube Nnlm(phinlm.get_Nnlm());
+
+      int Nmax(phinlm.get_Nmax());
+
+      for (int j = 0; j < nq; j++) {
+	phinlm.compute(mu[j]);
+      }
+
+      //arma::mat phimu((Lmax+1)*(Mmax+1)*(Nmax+1),nq);
+
+      arma::mat phi_n_mu(Nmax+1,nq);
+
+      //for (int j = 0; j < nq; j++) {
+	// evaluate (a cube of) Phinlm at each mu, normalised by sqrt(Nnlm)
+	// arma::cube phinlm_cube(phinlm.get_Phinlm(mu[j]));
+	//phimu.col(j) = arma::vectorise(phinlm_cube/arma::sqrt(Nnlm));
+	//}
+
+      for (int n = 0; n <= Nmax; n++) {
+	arma::vec phimu_vec(phinlm.get_Phinlm(n, L, M, mu));
+	//std::cout << "phimu_vec=\n" << phimu_vec;
+	double norm(sqrt(Nnlm(L,abs(M),n)));
+	//std::cout << "norm=" << norm << "\n";
+	phi_n_mu.row(n) = arma::trans(phimu_vec)/norm;
+      }
+
+      //std::cout << "phi_n_mu=\n" << phi_n_mu;
+
+      arma::mat ints(Nmax+1,bfprod.n_cols);
+      //arma::mat ints((Lmax+1)*(Mmax+1)*(Nmax+1),bfprod.n_cols);
+      // so first index is flattened (n,l,m) (labelling CR basis functions)
+      // & second index is flattened (i,j) (labelling in-element polynomial basis functions)
+
+
+      double Rh(phinlm.get_Rh());
+
+      ints = mulen/Rh * (phi_n_mu * bfprod); // maybe need a factor of sqrt(Rh) here
+
+      //ints.replace(arma::datum::nan, 0);
+
+      return arma::trans(ints);
+    }
+
+
+
+
     arma::mat twoe_integral(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel) {
       double rmin(fem.element_begin(iel));
       double rmax(fem.element_end(iel));
@@ -358,6 +443,7 @@ namespace helfem {
     }
 
     arma::mat IBFnl_quadrature(double rmin, double rmax, const arma::vec & xq, const arma::vec & wq, helfem::cr::PhinlTable phinl, const std::shared_ptr<const polynomial_basis::PolynomialBasis> & poly, double rs) {
+      // this could be folded into twoe_integral_quadrature()
       double rmid = 0.5*(rmax + rmin);
       double rlen = 0.5*(rmax - rmin);
       int nprim = poly->get_nprim();

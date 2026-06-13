@@ -1,5 +1,6 @@
 #include <armadillo>
 #include "cr_spherical_potentials.h"
+#include "cr_spheroidal_potentials.h"
 #include <PolynomialBasis.h>
 #include "RadialBasis.h"
 
@@ -14,6 +15,8 @@ namespace helfem {
 
     //arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, IknlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx);
     arma::mat twoe_integral_quadrature(const polynomial_basis::FiniteElementBasis & fem, PhinlTable & iknl, int L, double rs, size_t iel, const arma::vec & x, const arma::vec & wx);
+
+    arma::mat twoe_integral_quadrature_diatomic(const polynomial_basis::FiniteElementBasis & fem, PhinlmTable & phinlm, int L, int M, int alpha, size_t iel, const arma::vec & xq, const arma::vec & wq);
 
     arma::vec psi_monomial_coeffs(int i, int j, const arma::vec & r0);
 

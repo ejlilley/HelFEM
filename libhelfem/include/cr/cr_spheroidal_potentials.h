@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <armadillo>
 
@@ -57,6 +59,11 @@ namespace helfem {
       arma::mat pnlm_mat(int n, int l, int m, const arma::vec & s);
 
       arma::cube get_Nnlm();
+
+      int get_Nmax();
+      int get_Lmax();
+      int get_Mmax();
+      double get_Rh();
 
       /// Get value(s) from table
       double get_Phinlm(int n, int l, int m, double mu) const;
