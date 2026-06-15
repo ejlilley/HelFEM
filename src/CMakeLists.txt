@@ -72,11 +72,13 @@ target_link_libraries(diatomic_dgrid helfem-common legendre)
 # add_library(cr cr/cr_utils.cpp cr/cr_spherical_potentials.cpp cr/cr_integrals.cpp)
 
 add_executable(cr_test cr/cr_test.cpp)
-target_link_libraries(cr_test helfem-common)
+target_link_libraries(cr_test helfem-common legendre)
 
 add_executable(cr_check_expressions cr/cr_check_expressions.cpp)
 target_link_libraries(cr_check_expressions helfem-common)
 
+add_executable(cr_test_spheroidal cr/cr_test_spheroidal.cpp)
+target_link_libraries(cr_test_spheroidal helfem-common legendre)
 
 # Install libraries and main executables
 install (TARGETS atomic diatomic diatomic_cbasis diatomic_cpl gensap DESTINATION bin OPTIONAL)
