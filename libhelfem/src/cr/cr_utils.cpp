@@ -176,5 +176,37 @@ namespace helfem {
       return bi2 % p2;
     }
 
+    arma::vec jacobi_norm_n(size_t n, double a, double b, double x) {
+      // std::cout << "computing jacobi_norm_n with n=" << n << " a=" << a << " b=" << b << " x=" << x << "\n";
+      double h0(pow(2,0.5*(1+a+b))*sqrt(gsl_sf_beta(a+1,b+1)));
+      // std::cout << "h0=" << h0 << "\n";
+
+      arma::vec ret(n+1);
+
+      ret[0] = 1/h0;
+
+      if (n == 0) {
+	return ret;
+      }
+
+      ret[1] = ((1+(a+b)/2)*x + (a-b)/2)*sqrt((3+a+b)/(1+a+b+a*b))*ret[0];
+
+      if (n == 1) {
+	return ret;
+      }
+
+      double An,Bn,Cn,id;
+
+      for (size_t i = 2; i <= n; i++){
+	id = double(i);
+	An = ((a + b + 2*id)*sqrt(((-1 + a + b + 2*id)*(1 + a + b + 2*id))/(id*(a + id)*(b + id)*(a + b + id))))/2;
+	Bn = ((a - b)*(a + b)*sqrt(((-1 + a + b + 2*id)*(1 + a + b + 2*id))/(id*(a + id)*(b + id)*(a + b + id))))/(2*(-2 + a + b + 2*id));
+	Cn = ((-1 + a + id)*(-1 + b + id)*(a + b + 2*id)*sqrt(((-1 + id)*id*(-1 + a + b + id)*(a + b + id)*(1 + a + b + 2*id))/((-1 + a + id)*(a + id)*(-1 + b + id)*(b + id)*(-3 + a + b + 2*id))))/(id*(a + b + id)*(-2 + a + b + 2*id));
+	ret[i] = (An*x + Bn)*ret[i-1] - Cn*ret[i-2];
+      }
+
+      return ret;
+    }
+
   }
 }

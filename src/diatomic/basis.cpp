@@ -1653,8 +1653,8 @@ namespace helfem {
           int M(LM_map[iLM].second);
 	  const size_t ilm(lmind(L,M));
 	  // Nnlm didn't include spherical harmonic normalisation factor, so include it here
-	  const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
-	  //const double LMfac(1.0);
+	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
+	  // std::cout << "LMfac=" << LMfac << "\n";
 
 	  for(size_t iel=0;iel<Nel;iel++) {
 	    size_t ifirst, ilast;
@@ -1685,8 +1685,7 @@ namespace helfem {
 	  int L(LM_map[iLM].first);
           int M(LM_map[iLM].second);
 	  const size_t ilm(lmind(L,M));
-	  //const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
-	  const double LMfac(1.0);
+	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
 
 	  for(size_t iel=0;iel<Nel;iel++) {
 	    size_t ifirst, ilast;

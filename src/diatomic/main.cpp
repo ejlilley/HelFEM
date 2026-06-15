@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nelem", 0, "number of elements", true);
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
+  parser.add<int>("cr", 0, "type of CR to use", false, -1);
   parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (Nmax)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
@@ -163,6 +164,7 @@ int main(int argc, char **argv) {
   int mmax(parser.get<int>("mmax"));
   int lpad(parser.get<int>("lpad"));
 
+  int CR(parser.get<int>("cr"));
   int Nmax(parser.get<int>("nmax"));
 
   // DFT angular grid
@@ -770,9 +772,10 @@ int main(int argc, char **argv) {
   basis.compute_tei(kfrac!=0.0);
   printf("Done in %.6f\n",timer.get());
 
-  basis.set_Nmax(Nmax);
-  int CR(0);
-  basis.compute_tei_cr(CR);
+  if (CR >= 0) {
+    basis.set_Nmax(Nmax);
+    basis.compute_tei_cr(CR);
+  }
 
   double Ekin=0.0, Epot=0.0, Ecoul=0.0, Exx=0.0, Exc=0.0, Eefield=0.0, Emfield=0.0, Etot=0.0;
   double Eold=0.0;
@@ -812,6 +815,8 @@ int main(int argc, char **argv) {
     chkpt.write("Eefield",Eefield);
     chkpt.write("Emfield",Emfield);
 
+    std::cout << "P=\n" << P;
+
     // Form Coulomb matrix
     timer.set();
     arma::mat J(basis.coulomb(P));
@@ -828,6 +833,29 @@ int main(int argc, char **argv) {
     double Ecoul_cr=0.5*arma::trace(P*J_cr);
     printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
     printf("Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr/Ecoul-1)));
+
+    std::cout << "J=\n" << J;
+    std::cout << "J_cr=\n" << J_cr;
+    // std::cout << "abs(P.(J-J_cr))=\n" << arma::abs((P*J)-(P*J_cr));
+    arma::mat ones_mat;	ones_mat.copy_size(J); ones_mat.ones();
+
+    std::cout << "log10|1 - J_cr/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr/J));
+    std::cout << "J_cr/J=\n" << J_cr/J;
+    // std::cout << "log10(abs(P.(J-J_cr))/E)=\n" << arma::log10(arma::abs((P*J)-(P*J_cr))/Ecoul);
+
+    arma::mat J_cr_fixed(J_cr);
+
+    for (int i = 0; i < Nelem-1; i++) {
+      int idx(i*(Nnodes-1) + Nnodes-1);
+      J_cr_fixed(idx,idx) = J(idx,idx);
+    }
+
+    std::cout << "J_cr_fixed=\n" << J_cr_fixed;
+    std::cout << "log10|1 - J_cr_fixed/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr_fixed/J));
+    std::cout << "J_cr_fixed/J=\n" << J_cr_fixed/J;
+    double Ecoul_cr_fixed=0.5*arma::trace(P*J_cr_fixed);
+    printf("\"fixed\" Coulomb CR energy %.10e\t",Ecoul_cr_fixed);
+    printf("\"fixed\" Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr_fixed/Ecoul-1)));
 
     // Form exchange matrix
     timer.set();

@@ -206,7 +206,16 @@ namespace helfem {
       if (alpha != 0)
 	w %= chmu;
 
-      // std::cout << "w=\n" << w;
+
+      std::cout.precision(15);
+      std::cout.setf(std::iostream::fixed);
+
+      // mu.t()..raw_print(std::cout, "mu:");
+
+      // w.t().raw_print(std::cout, "w:");
+
+      // bfprod.col(bfprod.n_cols-1).t().raw_print(std::cout, "bfprod.col(imax):");
+
 
       for(size_t i=0;i<bfprod.n_cols;i++) { // multiply weights
         bfprod.col(i) %= w;
@@ -232,13 +241,23 @@ namespace helfem {
 	//phimu.col(j) = arma::vectorise(phinlm_cube/arma::sqrt(Nnlm));
 	//}
 
+
       for (int n = 0; n <= Nmax; n++) {
+
 	arma::vec phimu_vec(phinlm.get_Phinlm(n, L, M, mu));
 	//std::cout << "phimu_vec=\n" << phimu_vec;
 	double norm(sqrt(Nnlm(L,abs(M),n)));
-	//std::cout << "norm=" << norm << "\n";
+	// std::cout << "norm=" << norm << "\n";
 	phi_n_mu.row(n) = arma::trans(phimu_vec)/norm;
+
+	// std::cout << "loop n=" << n << "    norm=" << norm << "\n";
+	// phimu_vec.raw_print(std::cout, "phimu_vec:");
       }
+
+
+
+      // phi_n_mu.row(Nmax).t().raw_print(std::cout, "phi_n_mu.row(Nmax):");
+
 
       //std::cout << "phi_n_mu=\n" << phi_n_mu;
 
@@ -247,10 +266,14 @@ namespace helfem {
       // so first index is flattened (n,l,m) (labelling CR basis functions)
       // & second index is flattened (i,j) (labelling in-element polynomial basis functions)
 
+      // bfprod.raw_print(std::cout, "bfprod:");
+      // phi_n_mu.raw_print(std::cout, "phi_n_mu:");
+
+
 
       double Rh(phinlm.get_Rh());
 
-      ints = mulen/Rh * (phi_n_mu * bfprod); // maybe need a factor of sqrt(Rh) here
+      ints = mulen/Rh * (phi_n_mu * bfprod);
 
       //ints.replace(arma::datum::nan, 0);
 

@@ -19,5 +19,7 @@ namespace helfem {
 
     arma::vec jacobi_n(int n, double a, double b, double x);
 
+    arma::vec jacobi_norm_n(size_t n, double a, double b, double x);
+
   }
 }

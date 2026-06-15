@@ -31,7 +31,7 @@ namespace helfem {
 	throw std::logic_error(oss.str());
       }
       //      if (CR < 0 || CR > 1) {
-      if (CR != 0) {
+      if (CR != 0 && CR != 2) {
 	std::ostringstream oss;
 	oss << "Invalid CR \"" << CR << "\" (not implemented)\n";
 	throw std::logic_error(oss.str());
@@ -106,6 +106,11 @@ namespace helfem {
 	    
 	  }
 	}
+      }
+
+      if (CR == 2) {
+	PhinlmTable::Nnlm.ones();
+	PhinlmTable::Nnlm *= 1/pow(Rh,4);
       }
       
     }
@@ -182,6 +187,35 @@ namespace helfem {
 
 	  }
 
+	}
+
+      } else if (CR == 2) { // same as 'CR==0' but orthonormal (Nnlm = 1 for all (n,l,m))
+
+	double xi = (pow(sinh(mu),2) - 1)/(pow(sinh(mu),2) + 1);
+
+	for (int l = 0; l <= Lmax; l++) {
+	double ld(l);
+
+	  for (int m = 0; m <= Mmax && m <= l; m++) {
+	    double md(abs(m));
+
+	    double zeroth_order(pow(2,-0.25)/sqrt(M_PI) * pow(2,0.5*(5 + l + abs(m)))*M_PI * pow(sinh(mu),abs(m))/pow(cosh(mu),abs(m)+l+1));
+
+	    arma::vec prefactors(Nmax+1);
+	    // prefactors[0] = 1.0;
+	    
+	    for (int n = 0; n <= Nmax; n++) {
+	      double nd(n);
+	      // prefactors[n] = prefactors[n-1] * (-0.125) * (nd*(-1 + ld + md + 2*nd)*(ld + md + 2*nd)*(1 + 2*ld + 2*md + 2*nd))/((-0.5 + ld + md + 2*nd)*(0.5 + ld + md + 2*nd));
+	      prefactors[n] = minusonepow(n)*1/sqrt((1 + l + m + 2*n)*(2 + l + m + 2*n));
+	    }
+
+	    arma::vec polys(jacobi_norm_n(Nmax,ld+0.5,md,xi));
+
+	    entry.Phinlm.tube(l,m) = 1/Rh*zeroth_order*(prefactors % polys);
+
+	  }
+	  
 	}
 
       }
