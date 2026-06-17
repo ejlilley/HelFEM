@@ -111,6 +111,13 @@ namespace helfem {
       if (CR == 2) {
 	PhinlmTable::Nnlm.ones();
 	PhinlmTable::Nnlm *= 1/pow(Rh,4);
+
+	// for (int l = 0; l <= Lmax; l++) {
+	  // for (int m = 0; m <= l && m <= Mmax; m++) {
+	    // PhinlmTable::Nnlm.tube(l,m) *= 4.0*M_PI*pow(Rh,5)*minusonepow(abs(m))*gsl_sf_fact(l - abs(m))/gsl_sf_fact(l + abs(m));
+	  // }
+	// }
+	
       }
       
     }

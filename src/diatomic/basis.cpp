@@ -1591,8 +1591,6 @@ namespace helfem {
 	// Number of CR radial basis functions
 	int Nmax = TwoDBasis::get_Nmax();
 
-	// std::cout << "Nel=" << Nel << " Nrad=" << Nrad << " Nmax=" << Nmax << "\n";
-	
 	std::vector<arma::mat> Paux0_cr(LM_map.size());
 	std::vector<arma::mat> Paux2_cr(LM_map.size());
         for(size_t i=0;i<Paux0_cr.size();i++) {
@@ -1633,11 +1631,6 @@ namespace helfem {
               // Increment
               arma::mat Prad(P.submat(kang*Nrad,lang*Nrad,(kang+1)*Nrad-1,(lang+1)*Nrad-1));
 
-	      // std::cout << "|       P -> Paux0_cr,Paux2_cr\n";
-
-	      // std::cout << "Prad.n_rows=" << Prad.n_rows << " Prad.n_cols=" << Prad.n_cols << "\n";
-	      // std::cout << "Paux0_cr[" << iLM << "].n_rows=" << Paux0_cr[iLM].n_rows << " Paux0_cr[" << iLM << "].n_cols=" << Paux0_cr[iLM].n_cols << "\n";
-
               if(cpl0!=0.0) {
 		Paux0_cr[iLM] += cpl0*Prad;
 	      }
@@ -1653,8 +1646,7 @@ namespace helfem {
           int M(LM_map[iLM].second);
 	  const size_t ilm(lmind(L,M));
 	  // Nnlm didn't include spherical harmonic normalisation factor, so include it here
-	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
-	  // std::cout << "LMfac=" << LMfac << "\n";
+	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
 
 	  for(size_t iel=0;iel<Nel;iel++) {
 	    size_t ifirst, ilast;
@@ -1662,22 +1654,11 @@ namespace helfem {
 	    size_t Ni(ilast-ifirst+1);
 	    size_t idx(Nel*ilm + iel);
 	  
-	    // std::cout << "||      Paux0_cr,Paux2_cr -> Paux_cr\n";
-
 	    arma::mat submat0(arma::trans(prim_tei_cr0[idx])*arma::reshape(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1));
 	    arma::mat submat2(arma::trans(prim_tei_cr2[idx])*arma::reshape(Paux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1));
 
 	    Paux_cr[iLM] += LMfac*(submat0 - submat2);
 
-	    // std::cout << "prim_tei_cr0[" << idx << "].n_rows=" << prim_tei_cr0[idx].n_rows << " prim_tei_cr0[" << idx << "].n_cols=" << prim_tei_cr0[idx].n_cols << "\n";
-	    // arma::mat Paux0_cr_submat(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast));
-	    // std::cout << "Paux0_cr_submat.n_rows=" << Paux0_cr_submat.n_rows << " Paux0_cr_submat.n_cols=" << Paux0_cr_submat.n_cols << "\n";
-
-	    // std::cout << "submat0.n_rows=" << submat0.n_rows << " submat0.n_cols=" << submat0.n_cols << "\n";
-
-	    // std::cout << "Paux_cr[" << iLM << "].n_rows=" << Paux_cr[iLM].n_rows << "\n";
-	    //Paux0_cr2[iLM] += arma::trans(prim_tei_cr0[idx])*arma::reshape(Paux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1);
-	    //Paux2_cr2[iLM] += arma::trans(prim_tei_cr2[idx])*arma::reshape(Paux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast),Ni*Ni,1);
 	    }
 	  }
 
@@ -1685,7 +1666,7 @@ namespace helfem {
 	  int L(LM_map[iLM].first);
           int M(LM_map[iLM].second);
 	  const size_t ilm(lmind(L,M));
-	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
+	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
 
 	  for(size_t iel=0;iel<Nel;iel++) {
 	    size_t ifirst, ilast;
@@ -1693,46 +1674,9 @@ namespace helfem {
 	    size_t Ni(ilast-ifirst+1);
 	    size_t idx(Nel*ilm + iel);
 
-	    // std::cout << "|||     Paux_cr -> Jaux0_cr,Jaux2_cr\n";
-	  
-	    Jaux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast) = LMfac*arma::reshape(prim_tei_cr0[idx] * Paux_cr[iLM], Ni, Ni);
-	    Jaux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast) = LMfac*arma::reshape(prim_tei_cr2[idx] * Paux_cr[iLM], Ni, Ni);
+	    Jaux0_cr[iLM].submat(ifirst,ifirst,ilast,ilast) += LMfac*arma::reshape(prim_tei_cr0[idx] * Paux_cr[iLM], Ni, Ni);
+	    Jaux2_cr[iLM].submat(ifirst,ifirst,ilast,ilast) += LMfac*arma::reshape(prim_tei_cr2[idx] * Paux_cr[iLM], Ni, Ni);
 
-	    // std::cout << "Paux_cr[" << iLM << "].n_rows=" << Paux_cr[iLM].n_rows << "\n";
-	    // std::cout << "prim_tei_cr0[" << idx << "].n_rows=" << prim_tei_cr0[idx].n_rows << " prim_tei_cr0[" << idx << "].n_cols=" << prim_tei_cr0[idx].n_cols << "\n";
-
-	    // arma::mat foo0;
-	    // arma::mat foo2(prim_tei_cr2[idx] * Paux_cr[iLM]);
-
-	    // std::cout << "foo0.n_rows=" << foo0.n_rows << " foo0.n_cols=" << foo0.n_cols << "\n";
-	    // std::cout << "Ni=" << Ni << "\n";
-
-	    // foo0.reshape(Ni, Ni);
-	    // foo2.reshape(Ni, Ni);
-
-	    // std::cout << "(new) foo0.n_rows=" << foo0.n_rows << " foo0.n_cols=" << foo0.n_cols << "\n";
-
-	    // size_t oldNi(Jaux0_cr[iLM].n_rows);
-	    // if (Ni != oldNi) {
-	      // std::cout << "oldNi=" << oldNi << "  Ni=" << Ni << "\n";
-	    // }
-
-	    // std::cout << "Ni=" << Ni << "\n";
-
-	    // need a reshape here because not all the elements contain Nrad basis polynomials
-	    // Jaux0_cr[iLM].reshape(Ni,Ni);
-	    // Jaux2_cr[iLM].reshape(Ni,Ni);
-
-	    // std::cout << "Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
-
-	    // Jaux0_cr[iLM] = foo0;
-	    // Jaux2_cr[iLM] = foo2;
-
-	    // std::cout << "(new) Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
-
-
-	    // Jaux0_cr[iLM] += arma::reshape(foo0, Ni, Ni);
-	    // Jaux2_cr[iLM] += arma::reshape(foo2, Ni, Ni);
 	    }
 	  }
 
@@ -1754,15 +1698,10 @@ namespace helfem {
             for(int L=Lmin;L<=Lmax;L++) {
 	      const size_t iLM(LMind(L,M));
 
-	      // std::cout << "||||    Jaux0_cr,Jaux2_cr -> J_cr\n";
-
               // Coupling
 
               double cpl0(gaunt.mod_coeff(lj,mj,L,M,li,mi));
               if(cpl0!=0.0) {
-		// std::cout << "Jaux0_cr[" << iLM << "].n_rows=" << Jaux0_cr[iLM].n_rows << " Jaux0_cr[" << iLM << "].n_cols=" << Jaux0_cr[iLM].n_cols << "\n";
-		// arma::mat J_cr_submat(J_cr.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1));
-		// std::cout << "J_cr_submat.n_rows=" << J_cr_submat.n_rows << " J_cr_submat.n_rows=" << J_cr_submat.n_rows << "\n";
 		J_cr.submat(iang*Nrad,jang*Nrad,(iang+1)*Nrad-1,(jang+1)*Nrad-1) -= cpl0*Jaux0_cr[iLM];
               }
 
@@ -1775,7 +1714,7 @@ namespace helfem {
           }
         }
 
-	return (-1/(4*M_PI))*remove_boundaries(J_cr); // prefactor is ad-hoc fix
+	return (-1/(4*M_PI))*remove_boundaries(J_cr); // prefactor could be absorbed into LMfac or Nnlm
 	//return remove_boundaries(J_cr);
 
       }

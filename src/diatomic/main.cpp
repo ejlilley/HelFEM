@@ -815,8 +815,6 @@ int main(int argc, char **argv) {
     chkpt.write("Eefield",Eefield);
     chkpt.write("Emfield",Emfield);
 
-    std::cout << "P=\n" << P;
-
     // Form Coulomb matrix
     timer.set();
     arma::mat J(basis.coulomb(P));
@@ -834,28 +832,11 @@ int main(int argc, char **argv) {
     printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
     printf("Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr/Ecoul-1)));
 
-    std::cout << "J=\n" << J;
-    std::cout << "J_cr=\n" << J_cr;
-    // std::cout << "abs(P.(J-J_cr))=\n" << arma::abs((P*J)-(P*J_cr));
-    arma::mat ones_mat;	ones_mat.copy_size(J); ones_mat.ones();
-
-    std::cout << "log10|1 - J_cr/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr/J));
-    std::cout << "J_cr/J=\n" << J_cr/J;
-    // std::cout << "log10(abs(P.(J-J_cr))/E)=\n" << arma::log10(arma::abs((P*J)-(P*J_cr))/Ecoul);
-
-    arma::mat J_cr_fixed(J_cr);
-
-    for (int i = 0; i < Nelem-1; i++) {
-      int idx(i*(Nnodes-1) + Nnodes-1);
-      J_cr_fixed(idx,idx) = J(idx,idx);
-    }
-
-    std::cout << "J_cr_fixed=\n" << J_cr_fixed;
-    std::cout << "log10|1 - J_cr_fixed/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr_fixed/J));
-    std::cout << "J_cr_fixed/J=\n" << J_cr_fixed/J;
-    double Ecoul_cr_fixed=0.5*arma::trace(P*J_cr_fixed);
-    printf("\"fixed\" Coulomb CR energy %.10e\t",Ecoul_cr_fixed);
-    printf("\"fixed\" Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr_fixed/Ecoul-1)));
+    // std::cout << "J=\n" << J;
+    // std::cout << "J_cr=\n" << J_cr;
+    // arma::mat ones_mat;	ones_mat.copy_size(J); ones_mat.ones();
+    // std::cout << "log10|1 - J_cr/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr/J));
+    // std::cout << "J_cr/J=\n" << J_cr/J;
 
     // Form exchange matrix
     timer.set();
