@@ -103,8 +103,8 @@ int main(int argc, char **argv) {
   parser.add<int>("nelem", 0, "number of elements", true);
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
-  parser.add<int>("cr", 0, "type of CR to use", false, -1);
-  parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (Nmax)", false, -1);
+  parser.add<int>("cr", 0, "type of CR: 1 for isochrone-like (orthonormal), 2 for Plummer-like (orthonormal), 0 for Plummer-like (non-orthonormal; deprecated)", false, 1);
+  parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (<0 disables CR)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
   parser.add<double>("Ez", 0, "electric dipole field", false, 0.0);
@@ -772,7 +772,7 @@ int main(int argc, char **argv) {
   basis.compute_tei(kfrac!=0.0);
   printf("Done in %.6f\n",timer.get());
 
-  if (CR >= 0) {
+  if (Nmax > -1) {
     basis.set_Nmax(Nmax);
     basis.compute_tei_cr(CR);
   }
@@ -825,7 +825,7 @@ int main(int argc, char **argv) {
     chkpt.write("J",J);
     chkpt.write("Ecoul",Ecoul);
 
-    if (CR>=0) {
+    if (Nmax > -1) {
       timer.set();
       arma::mat J_cr(basis.coulomb_cr(P));
       double tJ_cr(timer.get());
@@ -875,7 +875,7 @@ int main(int argc, char **argv) {
     arma::mat Ka_cr; arma::mat Kb_cr;
     double Exx_cr(0.0); double tK_cr(0.0);
 
-    if (CR>=0) {
+    if (Nmax >= -1) {
       
       timer.set();
       

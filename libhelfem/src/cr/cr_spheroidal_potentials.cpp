@@ -25,59 +25,18 @@ namespace helfem {
 
     PhinlmTable::PhinlmTable(int CR_, int Nmax_, int Lmax_, int Mmax_, double Rh_) : CR(CR_), Nmax(Nmax_), Lmax(Lmax_), Mmax(Mmax_), Rh(Rh_) {
 
-      if (Nmax < 0 || Lmax < 0 || Mmax < 0 || Rh <= 0.0) {
+      if (Nmax < 0 || Lmax < 0 || Mmax < 0 || Rh <= 0.0 || Mmax > Lmax) {
 	std::ostringstream oss;
-	oss << "Invalid CR Nmax or Lmax or Mmax or Rh\n";
+	oss << "Invalid CR Nmax(" << Nmax << ") or Lmax(" << Lmax << ") or Mmax(" << Mmax << ") or Rh(" << Rh << ")\n";
 	throw std::logic_error(oss.str());
       }
-      //      if (CR < 0 || CR > 1) {
-      if (CR != 0 && CR != 2) {
+      if (CR < 0 || CR > 2) {
 	std::ostringstream oss;
 	oss << "Invalid CR \"" << CR << "\" (not implemented)\n";
 	throw std::logic_error(oss.str());
       }
 
     }
-
-    double PhinlmTable::phi0lm(int l, int m, double mu) {
-      if (CR == 0) {
-	//return pow(r,l)/pow(1 + pow(r,1/alpha),(1+2*l)*alpha);
-      } else if (CR == 1) {
-	//return -4*M_PI/(1 + 2*l)*( pow(r,l)*(1+r)*exp(-r) + pow(r,-l-1)*gsl_sf_gamma(2*l+3)*gsl_sf_gamma_inc_P(2*l+3,r) );
-      } else {
-	return -1;
-      }
-    }
-
-
-    arma::vec PhinlmTable::pnlm(int n, int l, int m, double s) {
-      if (CR != 1) {
-	return {};
-      }
-
-      //if (CR == 0) {
-      //}
-
-      //if (CR == 1) {
-      //}
-
-    }
-
-    arma::mat PhinlmTable::pnlm_mat(int n, int l, int m, const arma::vec & s) {
-      int sn = s.n_elem;
-
-      if (CR != 1) {
-	return {};
-      }
-
-      if (CR == 1) {
-	if (n == 0) {
-	  return arma::trans(arma::ones(sn));
-	}
-      }
-
-    }
-
 
     // the index order is actually (l,m,n)
     arma::cube PhinlmTable::get_Nnlm() {
@@ -108,7 +67,7 @@ namespace helfem {
 	}
       }
 
-      if (CR == 2) {
+      if (CR == 1 || CR == 2) {
 	PhinlmTable::Nnlm.ones();
 	PhinlmTable::Nnlm *= 1/pow(Rh,4);
 
@@ -183,14 +142,29 @@ namespace helfem {
 	  
 	}
 	
-      } else if (CR == 1) { // "isochrone"
+      } else if (CR == 1) { // "isochrone" (orthonormal)
+
+	double zeta((pow(sinh(mu/2),2) - 1)/(pow(sinh(mu/2),2) + 1));
+
 	for (int l = 0; l <= Lmax; l++) {
+	  double ld(l);
 
 	  for (int m = 0; m <= Mmax && m <= l; m++) {
+	    double md(abs(m));
+
+	    // double zeroth_order((pow(2,2 + 2*ld + md/2)*sqrt(M_PI))/sqrt((1 + ld)*(1 + ld + md)) * pow(sinh(mu),abs(m))/pow(1.0+cosh(mu),abs(m)+l+1));
+	    double zeroth_order((pow(2,2.5 + 2*ld + md/2)*sqrt(M_PI)) * pow(sinh(mu),abs(m))/pow(1.0+cosh(mu),abs(m)+l+1));
 	    
+	    arma::vec prefactors(Nmax+1);
+
 	    for (int n = 0; n <= Nmax; n++) {
-	      //
+	      double nd(n);
+	      prefactors[n] = 1/sqrt((1 + ld + nd)*(1 + ld + md + nd));
 	    }
+
+	    arma::vec polys(jacobi_norm_n(Nmax,2*ld+1.0,md,zeta));
+
+	    entry.Phinlm.tube(l,m) = 1/Rh*zeroth_order*(prefactors % polys);
 
 	  }
 

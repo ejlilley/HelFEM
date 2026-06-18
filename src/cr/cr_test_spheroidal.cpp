@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nquad", 0, "nquad", false, 50);
   parser.add<double>("Rmax", 0, "Rmax", false, 10.0);
   parser.add<double>("Rhalf", 0, "Rhalf", false, 1.0);
+  parser.add<int>("CR", 0, "CR", false, 2);
   parser.parse_check(argc, argv);
 
   double Rhalf(parser.get<double>("Rhalf"));
@@ -71,6 +72,7 @@ int main(int argc, char **argv) {
   int nnodes(parser.get<int>("nnodes"));
   int nquad(parser.get<int>("nquad"));
   double Rmax(parser.get<double>("Rmax"));
+  int CR(parser.get<int>("CR"));
 
 
   int primbas = 4;
@@ -83,7 +85,7 @@ int main(int argc, char **argv) {
   // ::lobatto_compute(nquad, x, wx);
   chebyshev::chebyshev(nquad, x, wx);
 
-  helfem::cr::PhinlmTable phinlm(2,Nmax,L,M,Rhalf);
+  helfem::cr::PhinlmTable phinlm(CR,Nmax,L,M,Rhalf);
   // helfem::cr::PhinlmTable phinlm0(0,Nmax,L,M,Rhalf);
 
   int igrid(4); double zexp(1.0);
@@ -147,6 +149,8 @@ int main(int argc, char **argv) {
 
   std::cout << "LMfac=" << LMfac << "\n";
 
+  arma::vec average_log_accuracy_by_element(Nelem);
+
   for(int iel = 0; iel < Nelem; iel++) {
     
     cr_twoe0[iel] = helfem::cr::twoe_integral_quadrature_diatomic(fem, phinlm, L, M, 0, iel, x, wx);
@@ -182,7 +186,9 @@ int main(int argc, char **argv) {
     ones_mat.copy_size(cr_twoe00);
     ones_mat.ones();
 
-    std::cout << "log|1-cr_twoe00/prim_tei00|=\n" << arma::log10(arma::abs(ones_mat - cr_twoe00 / prim_tei00));
+    arma::mat log_accuracy(arma::log10(arma::abs(ones_mat - cr_twoe00 / prim_tei00)));
+
+    std::cout << "log|1-cr_twoe00/prim_tei00|=\n" << log_accuracy;
     // std::cout << "log|1-cr_twoe02/prim_tei02|=\n" << arma::log10(arma::abs(ones_mat - cr_twoe02 / prim_tei02));
     // std::cout << "log|1-cr_twoe20/prim_tei20|=\n" << arma::log10(arma::abs(ones_mat - cr_twoe20 / prim_tei20));
     // std::cout << "log|1-cr_twoe22/prim_tei22|=\n" << arma::log10(arma::abs(ones_mat - cr_twoe22 / prim_tei22));
@@ -195,7 +201,12 @@ int main(int argc, char **argv) {
     cr_twoe00.raw_print(std::cout, "cr_twoe00:");
     prim_tei00.raw_print(std::cout, "prim_tei00:");
 
+    double nint(log_accuracy.n_rows*log_accuracy.n_cols);
+    average_log_accuracy_by_element[iel] = arma::sum(log_accuracy.as_col())/nint;
+
   }
+
+  std::cout << "\nElement-wise average log accuracy: " << arma::trans(average_log_accuracy_by_element);
 
     return 0;
 }
