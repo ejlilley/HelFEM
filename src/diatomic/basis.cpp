@@ -1923,6 +1923,152 @@ namespace helfem {
         return remove_boundaries(K);
       }
 
+      arma::mat TwoDBasis::exchange_cr(const arma::mat & P0) const {
+        if(!prim_ktei00.size())
+          throw std::logic_error("Primitive teis have not been computed!\n");
+
+        // Extend to boundaries
+        arma::mat P(expand_boundaries(P0));
+
+        // Number of radial elements
+        size_t Nel(radial.Nel());
+        // Number of radial basis functions
+        size_t Nrad(radial.Nbf());
+
+        // Full exchange matrix
+        arma::mat K_cr(Ndummy(),Ndummy());
+        K_cr.zeros();
+	
+	for(size_t jang=0;jang<lval.n_elem;jang++) {
+	  for(size_t kang=0;kang<lval.n_elem;kang++) {
+	    int lj(lval(jang));
+	    int mj(mval(jang));
+	    
+	    int lk(lval(kang));
+	    int mk(mval(kang));
+
+	    std::vector<arma::mat> Rmat00(lm_map.size());
+	    std::vector<arma::mat> Rmat02(lm_map.size());
+	    std::vector<arma::mat> Rmat20(lm_map.size());
+	    std::vector<arma::mat> Rmat22(lm_map.size());
+
+	    for(size_t i=0;i<lm_map.size();i++) {
+	      Rmat00[i].zeros(Nrad,Nrad);
+	      Rmat02[i].zeros(Nrad,Nrad);
+	      Rmat20[i].zeros(Nrad,Nrad);
+	      Rmat22[i].zeros(Nrad,Nrad);
+	    }
+	    // Is there a coupling to the channel?
+	    std::vector<bool> couple(lm_map.size(),false);
+
+	    // Perform angular sums
+	    for(size_t iang=0;iang<lval.n_elem;iang++) {
+	      int li(lval(iang));
+	      int mi(mval(iang));
+	      
+	      for(size_t lang=0;lang<lval.n_elem;lang++) {
+		int ll(lval(lang));
+		int ml(mval(lang));
+		
+		// LH m value
+		int M(mj-mi);
+		// RH m value
+		int Mp(mk-ml);
+		if(M!=Mp)
+		  continue;
+		
+		// Do we have any density in this block?
+		double bdens(arma::norm(P.submat(iang*Nrad,lang*Nrad,(iang+1)*Nrad-1,(lang+1)*Nrad-1),"fro"));
+		//printf("(%i %i) (%i %i) density block norm %e\n",li,mi,ll,ml,bdens);
+		if(bdens<10*DBL_EPSILON)
+		  continue;
+		
+		// M values match. Loop over possible couplings
+		int Lmin=std::max(std::max(std::abs(li-lj),std::abs(lk-ll))-2,abs(M));
+		int Lmax=std::min(li+lj,lk+ll)+2;
+		
+		for(int L=Lmin;L<=Lmax;L++) {
+		  // Calculate total coupling coefficient
+		  double cpl00(gaunt.mod_coeff(lj,mj,L,M,li,mi)*gaunt.mod_coeff(lk,mk,L,M,ll,ml));
+		  double cpl02(-gaunt.mod_coeff(lj,mj,L,M,li,mi)*gaunt.coeff(lk,mk,L,M,ll,ml));
+		  double cpl20(-gaunt.coeff(lj,mj,L,M,li,mi)*gaunt.mod_coeff(lk,mk,L,M,ll,ml));
+		  double cpl22(gaunt.coeff(lj,mj,L,M,li,mi)*gaunt.coeff(lk,mk,L,M,ll,ml));
+		  
+		  // Is there any coupling?
+		  if(cpl00==0.0 && cpl02==0.0 && cpl20==0.0 && cpl22==0.0)
+		    continue;
+		  
+		  // Index in the L,|M| table
+		  const size_t ilm(lmind(L,M));
+		  const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
+		  
+		  // arma::mat Psub(mem_Psub[ith].memptr(),Nrad,Nrad,false,true);
+		  arma::mat Psub(Nrad,Nrad);
+		  Psub=P.submat(iang*Nrad,lang*Nrad,(iang+1)*Nrad-1,(lang+1)*Nrad-1);
+		  
+		  Rmat00[ilm]+=(LMfac*cpl00)*Psub;
+		  Rmat02[ilm]+=(LMfac*cpl02)*Psub;
+		  Rmat20[ilm]+=(LMfac*cpl20)*Psub;
+		  Rmat22[ilm]+=(LMfac*cpl22)*Psub;
+		  couple[ilm]=true;
+		}
+	      }
+	    }
+
+	    for(size_t ilm=0;ilm<lm_map.size();ilm++) {
+		
+	      if(!couple[ilm])
+		continue;
+
+	      // int L(lm_map[ilm].first);
+	      // int M(lm_map[ilm].second);
+	      // const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
+
+	      for(size_t iel=0;iel<Nel;iel++) {
+		size_t ifirst, ilast;
+		radial.get_idx(iel,ifirst,ilast);
+		size_t Ni(ilast-ifirst+1);
+		
+		for(int lel=0;lel<Nel;lel++) {
+		  size_t lfirst, llast;
+		  radial.get_idx(lel,lfirst,llast);
+		  size_t Nl(llast-lfirst+1);
+
+		  arma::mat Rsub00(Rmat00[ilm].submat(ifirst,lfirst,ilast,llast));
+		  // std::cout << "Rsub00.n_rows=" << Rsub00.n_rows << " Rsub00.n_cols=" << Rsub00.n_cols << "\n";
+		  arma::mat Rsub02(Rmat02[ilm].submat(ifirst,lfirst,ilast,llast));
+		  arma::mat Rsub20(Rmat20[ilm].submat(ifirst,lfirst,ilast,llast));
+		  arma::mat Rsub22(Rmat22[ilm].submat(ifirst,lfirst,ilast,llast));
+
+		  arma::cube prim_tei_cr_i0((double*) prim_tei_cr0[Nel*ilm + iel].memptr(),Ni,Ni,Nmax+1,false,true);
+		  arma::cube prim_tei_cr_i2((double*) prim_tei_cr2[Nel*ilm + iel].memptr(),Ni,Ni,Nmax+1,false,true);
+		  // std::cout << "prim_tei_cr_i2.n_rows=" << prim_tei_cr_i2.n_rows << " prim_tei_cr_i2.n_cols=" << prim_tei_cr_i2.n_cols << " prim_tei_cr_i2.n_slices=" << prim_tei_cr_i2.n_slices << "\n";
+		  arma::cube prim_tei_cr_l0((double*) prim_tei_cr0[Nel*ilm + lel].memptr(),Nl,Nl,Nmax+1,false,true);
+		  arma::cube prim_tei_cr_l2((double*) prim_tei_cr2[Nel*ilm + lel].memptr(),Nl,Nl,Nmax+1,false,true);
+
+		  arma::mat Ksub(Ni,Nl);
+		  Ksub.zeros();
+
+		  // std::cout << "Ksub.n_rows=" << Ksub.n_rows << " Ksub.n_cols=" << Ksub.n_cols << "\n";
+		  
+		  for(size_t N=0;N<=Nmax;N++) { // ideally this would also use broadcasting
+		    Ksub += prim_tei_cr_i2.slice(N)*Rsub22*prim_tei_cr_l2.slice(N); // need arma::vectorise or something in here
+		    Ksub += prim_tei_cr_i2.slice(N)*Rsub20*prim_tei_cr_l0.slice(N);
+		    Ksub += prim_tei_cr_i0.slice(N)*Rsub02*prim_tei_cr_l2.slice(N);
+		    Ksub += prim_tei_cr_i0.slice(N)*Rsub00*prim_tei_cr_l0.slice(N);
+		  }
+
+		  K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub/(4.0*M_PI);
+		}
+	      }
+	    }
+	  }
+	}
+
+	return remove_boundaries(K_cr);
+      }
+
+
       arma::mat TwoDBasis::remove_boundaries(const arma::mat & Fnob) const {
         if(Fnob.n_rows != Ndummy() || Fnob.n_cols != Ndummy()) {
           std::ostringstream oss;

@@ -825,12 +825,16 @@ int main(int argc, char **argv) {
     chkpt.write("J",J);
     chkpt.write("Ecoul",Ecoul);
 
-    timer.set();
-    arma::mat J_cr(basis.coulomb_cr(P));
-    double tJ_cr(timer.get());
-    double Ecoul_cr=0.5*arma::trace(P*J_cr);
-    printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
-    printf("Coulomb CR log error: %.6f\n",log10(fabs(Ecoul_cr/Ecoul-1)));
+    if (CR>=0) {
+      timer.set();
+      arma::mat J_cr(basis.coulomb_cr(P));
+      double tJ_cr(timer.get());
+      double Ecoul_cr=0.5*arma::trace(P*J_cr);
+      printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
+      printf("Coulomb CR log error: %.6f",log10(fabs(Ecoul_cr/Ecoul-1)));
+    }
+
+    printf("\n");
 
     // std::cout << "J=\n" << J;
     // std::cout << "J_cr=\n" << J_cr;
@@ -839,8 +843,10 @@ int main(int argc, char **argv) {
     // std::cout << "J_cr/J=\n" << J_cr/J;
 
     // Form exchange matrix
+
     timer.set();
     arma::mat Ka, Kb;
+    double tK;
     if(kfrac!=0.0) {
       Ka=kfrac*basis.exchange(Pa);
 
@@ -851,11 +857,12 @@ int main(int argc, char **argv) {
           Kb=kfrac*basis.exchange(Pb);
       } else
         Kb.zeros(Cbocc.n_rows,Cbocc.n_rows);
-      double tK(timer.get());
+      // double tK(timer.get());
+      tK = timer.get();
       Exx=0.5*arma::trace(Pa*Ka);
       if(Kb.n_rows == Pb.n_rows && Kb.n_cols == Pb.n_cols)
         Exx+=0.5*arma::trace(Pb*Kb);
-      printf("Exchange energy %.10e % .6f\n",Exx,tK);
+      // printf("Exchange energy %.10e % .6f\t",Exx,tK);
     } else {
       Exx=0.0;
     }
@@ -864,6 +871,44 @@ int main(int argc, char **argv) {
     chkpt.write("Ka",Ka);
     chkpt.write("Kb",Kb);
     chkpt.write("Exx",Exx);
+
+    arma::mat Ka_cr; arma::mat Kb_cr;
+    double Exx_cr(0.0); double tK_cr(0.0);
+
+    if (CR>=0) {
+      
+      timer.set();
+      
+      Ka_cr=basis.exchange_cr(Pa);
+
+      if(nelb) {
+        if(restr && nela==nelb)
+          Kb_cr=Ka_cr;
+        else
+          Kb_cr=basis.exchange(Pb);
+      } else
+        Kb_cr.zeros(Cbocc.n_rows,Cbocc.n_rows);
+
+      tK_cr = timer.get();
+
+      Exx_cr=0.5*arma::trace(Pa*Ka_cr);
+      if(Kb_cr.n_rows == Pb.n_rows && Kb_cr.n_cols == Pb.n_cols)
+        Exx_cr+=0.5*arma::trace(Pb*Kb_cr);
+
+      printf("Exchange energy %.10e % .6f\t",Exx,tK);
+      printf("Exchange CR energy %.10e % .6f\t",Exx_cr,tK_cr);
+      printf("Exchange CR log error: %.6f",log10(fabs(Exx_cr/Exx-1)));
+    }
+
+    printf("\n");
+
+    std::cout << "Ka=\n" << Ka;
+    std::cout << "Ka_cr=\n" << Ka_cr;
+    arma::mat ones_matK; ones_matK.copy_size(Ka); ones_matK.ones();
+    std::cout << "log10|1 - Ka_cr/Ka|=\n" << arma::log10(arma::abs(ones_matK - Ka_cr/Ka));
+    std::cout << "Ka_cr/Ka=\n" << Ka_cr/Ka;
+
+
 
     // Exchange-correlation
     Exc=0.0;
