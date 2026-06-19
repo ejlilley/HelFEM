@@ -1958,12 +1958,14 @@ namespace helfem {
 #else
         const int nth(1);
 #endif
-        std::vector<arma::vec> mem_Ksub(nth);
+        std::vector<arma::vec> mem_Ksub2(nth);
+        std::vector<arma::vec> mem_Ksub3(nth);
         std::vector<arma::vec> mem_Rsub00(nth);
         std::vector<arma::vec> mem_Rsub02(nth);
         std::vector<arma::vec> mem_Rsub20(nth);
         std::vector<arma::vec> mem_Rsub22(nth);
-        std::vector<arma::vec> mem_T(nth);
+        // std::vector<arma::vec> mem_T1(nth);
+        // std::vector<arma::vec> mem_T2(nth);
         std::vector<arma::vec> mem_Psub(nth);
 
 #ifdef _OPENMP
@@ -1976,12 +1978,14 @@ namespace helfem {
           const int ith(0);
 #endif
           // These are only small submatrices!
-          mem_Ksub[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
-          mem_Rsub00[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
-          mem_Rsub02[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
-          mem_Rsub20[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
-          mem_Rsub22[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
-          // mem_T[ith].zeros((Nmax+1)*radial.max_Nprim()*radial.max_Nprim());
+          mem_Ksub2[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
+          mem_Ksub3[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          mem_Rsub00[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          mem_Rsub02[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          mem_Rsub20[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          mem_Rsub22[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          // mem_T1[ith].zeros((Nmax+1)*radial.max_Nprim()*radial.max_Nprim());
+          // mem_T2[ith].zeros((Nmax+1)*radial.max_Nprim()*radial.max_Nprim());
           mem_Psub[ith].zeros(Nrad*Nrad); // Used in agular sum
 
           // Increment
@@ -2079,42 +2083,78 @@ namespace helfem {
 		size_t Nl(llast-lfirst+1);
 		
 		// arma::mat Ksub(Ni,Nl);
-		arma::mat Ksub(mem_Ksub[ith].memptr(),Ni,Nl,false,true);
-		Ksub.zeros();
+		// arma::mat Ksub(mem_Ksub[ith].memptr(),Ni,Nl,false,true);
+		// Ksub.zeros();
+
+		arma::mat Ksub2((Nmax+1)*Ni,(Nmax+1)*Nl);
+		// arma::mat Ksub2(mem_Ksub2[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		Ksub2.zeros();
+		arma::mat Ksub3(Ni,Nl);
+		// arma::mat Ksub3(mem_Ksub3[ith].memptr(),Ni,Nl,false,true);
+		Ksub3.zeros();
 		
-		// arma::mat T(mem_T[ith].memptr(),Ni*(Nmax+1),Nl,false,true);
+		// arma::mat T1(mem_T1[ith].memptr(),Ni*(Nmax+1),Nl,false,true);
+		// arma::mat T2(mem_T2[ith].memptr(),Ni*(Nmax+1),Nl,false,true);
+		// arma::mat T1(Ni*(Nmax+1), Nl*(Nmax+1));
+		// arma::mat T2(Ni*(Nmax+1), Nl*(Nmax+1));
+
+		// arma::mat Rsub00_blockmat(mem_Rsub00[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		// arma::mat Rsub02_blockmat(mem_Rsub02[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		// arma::mat Rsub20_blockmat(mem_Rsub20[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		// arma::mat Rsub22_blockmat(mem_Rsub22[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+
+		// arma::mat Rsub00(mem_Rsub00[ith].memptr(),Ni,Nl,false,true);
+		arma::mat Rsub00(Ni,Nl);
+		// arma::mat Rsub02(mem_Rsub02[ith].memptr(),Ni,Nl,false,true);
+		arma::mat Rsub02(Ni,Nl);
+		// arma::mat Rsub20(mem_Rsub20[ith].memptr(),Ni,Nl,false,true);
+		arma::mat Rsub20(Ni,Nl);
+		// arma::mat Rsub22(mem_Rsub22[ith].memptr(),Ni,Nl,false,true);
+		arma::mat Rsub22(Ni,Nl);
 
 		for(size_t ilm=0;ilm<lm_map.size();ilm++) {
 		  
 		  if(!couple[ilm])
 		    continue;
 		  
-		  arma::mat Rsub00_blockmat(mem_Rsub00[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
-		  Rsub00_blockmat = arma::kron(ones_diag, Rmat00[ilm].submat(ifirst,lfirst,ilast,llast));
-		  arma::mat Rsub02_blockmat(mem_Rsub02[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
-		  Rsub02_blockmat = arma::kron(ones_diag, Rmat02[ilm].submat(ifirst,lfirst,ilast,llast));
-		  arma::mat Rsub20_blockmat(mem_Rsub20[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
-		  Rsub20_blockmat = arma::kron(ones_diag, Rmat20[ilm].submat(ifirst,lfirst,ilast,llast));
-		  arma::mat Rsub22_blockmat(mem_Rsub22[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
-		  Rsub22_blockmat = arma::kron(ones_diag, Rmat22[ilm].submat(ifirst,lfirst,ilast,llast));
+		  // Rsub00_blockmat = arma::kron(ones_diag, Rmat00[ilm].submat(ifirst,lfirst,ilast,llast));
+		  // Rsub02_blockmat = arma::kron(ones_diag, Rmat02[ilm].submat(ifirst,lfirst,ilast,llast));
+		  // Rsub20_blockmat = arma::kron(ones_diag, Rmat20[ilm].submat(ifirst,lfirst,ilast,llast));
+		  // Rsub22_blockmat = arma::kron(ones_diag, Rmat22[ilm].submat(ifirst,lfirst,ilast,llast));
 
-		  // arma::mat Rsub00_blockmat(arma::kron(ones_diag, Rmat00[ilm].submat(ifirst,lfirst,ilast,llast)));
-		  // arma::mat Rsub02_blockmat(arma::kron(ones_diag, Rmat02[ilm].submat(ifirst,lfirst,ilast,llast)));
-		  // arma::mat Rsub20_blockmat(arma::kron(ones_diag, Rmat20[ilm].submat(ifirst,lfirst,ilast,llast)));
-		  // arma::mat Rsub22_blockmat(arma::kron(ones_diag, Rmat22[ilm].submat(ifirst,lfirst,ilast,llast)));
-		  
-		  Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub00_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
-		  Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub02_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
-		  Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub20_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
-		  Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub22_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
+		  Rsub00 = Rmat00[ilm].submat(ifirst,lfirst,ilast,llast);
+		  Rsub02 = Rmat02[ilm].submat(ifirst,lfirst,ilast,llast);
+		  Rsub20 = Rmat20[ilm].submat(ifirst,lfirst,ilast,llast);
+		  Rsub22 = Rmat22[ilm].submat(ifirst,lfirst,ilast,llast);
+
+		  // Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub00_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
+		  // Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub02_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
+		  // Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub20_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
+		  // Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub22_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
 
 		  // T = prim_ktei_cr0[Nel*ilm + iel] * Rsub00_blockmat + prim_ktei_cr2[Nel*ilm + iel] * Rsub20_blockmat;
 		  // Ksub += T*prim_ktei_cr0[Nel*ilm + lel].t();
 		  // T = prim_ktei_cr0[Nel*ilm + iel] * Rsub02_blockmat + prim_ktei_cr2[Nel*ilm + iel] * Rsub22_blockmat;
 		  // Ksub += T*prim_ktei_cr2[Nel*ilm + lel].t();
+
+		  // Ksub2 += prim_ktei_cr0[Nel*ilm + iel].t() * Rsub00 * prim_ktei_cr0[Nel*ilm + lel];
+		  // Ksub2 += prim_ktei_cr0[Nel*ilm + iel].t() * Rsub02 * prim_ktei_cr2[Nel*ilm + lel];
+		  // Ksub2 += prim_ktei_cr2[Nel*ilm + iel].t() * Rsub20 * prim_ktei_cr0[Nel*ilm + lel];
+		  // Ksub2 += prim_ktei_cr2[Nel*ilm + iel].t() * Rsub22 * prim_ktei_cr2[Nel*ilm + lel];
+
+		  // T1 = prim_ktei_cr0[Nel*ilm + iel].t() * Rsub00 + prim_ktei_cr2[Nel*ilm + iel].t() * Rsub20;
+		  // T2 = prim_ktei_cr0[Nel*ilm + iel].t() * Rsub02 + prim_ktei_cr2[Nel*ilm + iel].t() * Rsub22;
+		  Ksub2 += (prim_ktei_cr0[Nel*ilm + iel].t() * Rsub00 + prim_ktei_cr2[Nel*ilm + iel].t() * Rsub20)*prim_ktei_cr0[Nel*ilm + lel];
+		  Ksub2 += (prim_ktei_cr0[Nel*ilm + iel].t() * Rsub02 + prim_ktei_cr2[Nel*ilm + iel].t() * Rsub22)*prim_ktei_cr2[Nel*ilm + lel];
+
 		}
-		
-		K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub/(4.0*M_PI);
+
+		for (int n = 0; n <= Nmax; n++) {
+		  Ksub3 += Ksub2.submat(n*Ni,n*Nl,(n+1)*Ni-1,(n+1)*Nl-1);
+		}
+
+		// K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub/(4.0*M_PI);
+		K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub3/(4.0*M_PI);
 
 	      }
 	    }
