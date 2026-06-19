@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nnodes", 0, "number of nodes per element", false, 15);
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
   parser.add<int>("cr", 0, "type of CR: 1 for isochrone-like (orthonormal), 2 for Plummer-like (orthonormal), 0 for Plummer-like (non-orthonormal; deprecated)", false, 1);
+  parser.add<bool>("crdiag", 0, "print diagnostic information comparing CR to normal evaluation", false, false);
   parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (<0 disables CR)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
@@ -165,6 +166,7 @@ int main(int argc, char **argv) {
   int lpad(parser.get<int>("lpad"));
 
   int CR(parser.get<int>("cr"));
+  bool crdiag(parser.get<bool>("crdiag"));
   int Nmax(parser.get<int>("nmax"));
 
   // DFT angular grid
@@ -774,7 +776,7 @@ int main(int argc, char **argv) {
 
   if (Nmax > -1) {
     basis.set_Nmax(Nmax);
-    basis.compute_tei_cr(CR);
+    basis.compute_tei_cr(CR,kfrac!=0.0);
   }
 
   double Ekin=0.0, Epot=0.0, Ecoul=0.0, Exx=0.0, Exc=0.0, Eefield=0.0, Emfield=0.0, Etot=0.0;
@@ -825,22 +827,26 @@ int main(int argc, char **argv) {
     chkpt.write("J",J);
     chkpt.write("Ecoul",Ecoul);
 
+    arma::mat J_cr;
+    double Ecoul_cr;
     if (Nmax > -1) {
       timer.set();
-      arma::mat J_cr(basis.coulomb_cr(P));
+      J_cr = basis.coulomb_cr(P);
       double tJ_cr(timer.get());
-      double Ecoul_cr=0.5*arma::trace(P*J_cr);
+      Ecoul_cr = 0.5*arma::trace(P*J_cr);
       printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
       printf("Coulomb CR log error: %.6f",log10(fabs(Ecoul_cr/Ecoul-1)));
     }
 
     printf("\n");
 
-    // std::cout << "J=\n" << J;
-    // std::cout << "J_cr=\n" << J_cr;
-    // arma::mat ones_mat;	ones_mat.copy_size(J); ones_mat.ones();
-    // std::cout << "log10|1 - J_cr/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr/J));
-    // std::cout << "J_cr/J=\n" << J_cr/J;
+    if (crdiag) {
+      std::cout << "J=\n" << J;
+      std::cout << "J_cr=\n" << J_cr;
+      arma::mat ones_mat;	ones_mat.copy_size(J); ones_mat.ones();
+      std::cout << "log10|1 - J_cr/J|=\n" << arma::log10(arma::abs(ones_mat - J_cr/J));
+      std::cout << "J_cr/J=\n" << J_cr/J;
+    }
 
     // Form exchange matrix
 
@@ -902,11 +908,13 @@ int main(int argc, char **argv) {
 
     printf("\n");
 
-    std::cout << "Ka=\n" << Ka;
-    std::cout << "Ka_cr=\n" << Ka_cr;
-    arma::mat ones_matK; ones_matK.copy_size(Ka); ones_matK.ones();
-    std::cout << "log10|1 - Ka_cr/Ka|=\n" << arma::log10(arma::abs(ones_matK - Ka_cr/Ka));
-    std::cout << "Ka_cr/Ka=\n" << Ka_cr/Ka;
+    if (crdiag) {
+      std::cout << "Ka=\n" << Ka;
+      std::cout << "Ka_cr=\n" << Ka_cr;
+      arma::mat ones_matK; ones_matK.copy_size(Ka); ones_matK.ones();
+      std::cout << "log10|1 - Ka_cr/Ka|=\n" << arma::log10(arma::abs(ones_matK - Ka_cr/Ka));
+      std::cout << "Ka_cr/Ka=\n" << Ka_cr/Ka;
+    }
 
 
 

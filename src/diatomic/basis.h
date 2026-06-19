@@ -147,6 +147,8 @@ namespace helfem {
 
         /// Primitive two-electron CR integrals: <Nel * lmmap> ((nnodes-1)^2, Nmax+1)
         std::vector<arma::mat> prim_tei_cr0, prim_tei_cr2;
+	/// Primitive two-electron CR integrals reshaped for exchange
+        std::vector<arma::mat> prim_ktei_cr0, prim_ktei_cr2;
 
         /// Number of CR basis functions
 	int Nmax;
@@ -214,7 +216,7 @@ namespace helfem {
         void compute_tei(bool exchange);
 
 	/// Compute two-electron integrals for CR
-        void compute_tei_cr(int CR);
+        void compute_tei_cr(int CR, bool exchange);
 
         /// Number of basis functions
         size_t Nbf() const;

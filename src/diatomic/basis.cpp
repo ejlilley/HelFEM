@@ -1313,11 +1313,16 @@ namespace helfem {
         }
       }
 
-      void TwoDBasis::compute_tei_cr(int CR) {
+      void TwoDBasis::compute_tei_cr(int CR, bool exchange) {
 	size_t Nel(radial.Nel());
 
 	prim_tei_cr0.resize(Nel*lm_map.size());
         prim_tei_cr2.resize(Nel*lm_map.size());
+
+	if (exchange) {
+	  prim_ktei_cr0.resize(Nel*lm_map.size());
+	  prim_ktei_cr2.resize(Nel*lm_map.size());
+	}
 
 	int Nmax(TwoDBasis::get_Nmax());
 	int Lmax(lm_map[lm_map.size()-1].first);
@@ -1342,10 +1347,17 @@ namespace helfem {
               // In-element integrals
               prim_tei_cr0[idx]=radial.twoe_integral_cr(0,iel,L,M,phinlm);
               prim_tei_cr2[idx]=radial.twoe_integral_cr(2,iel,L,M,phinlm);
+
+	      if (exchange) {
+		size_t ifirst, ilast;
+		radial.get_idx(iel,ifirst,ilast);
+		size_t Ni(ilast-ifirst+1);
+		prim_ktei_cr0[idx] = arma::reshape(prim_tei_cr0[idx], Ni, (Nmax+1)*Ni);
+		prim_ktei_cr2[idx] = arma::reshape(prim_tei_cr2[idx], Ni, (Nmax+1)*Ni);
+	      }
             }
 	  }
 	}
-
 
       }
 
@@ -1939,6 +1951,45 @@ namespace helfem {
         arma::mat K_cr(Ndummy(),Ndummy());
         K_cr.zeros();
 	
+
+        // Helper memory
+#ifdef _OPENMP
+        const int nth(omp_get_max_threads());
+#else
+        const int nth(1);
+#endif
+        std::vector<arma::vec> mem_Ksub(nth);
+        std::vector<arma::vec> mem_Rsub00(nth);
+        std::vector<arma::vec> mem_Rsub02(nth);
+        std::vector<arma::vec> mem_Rsub20(nth);
+        std::vector<arma::vec> mem_Rsub22(nth);
+        std::vector<arma::vec> mem_T(nth);
+        std::vector<arma::vec> mem_Psub(nth);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        {
+#ifdef _OPENMP
+          const int ith(omp_get_thread_num());
+#else
+          const int ith(0);
+#endif
+          // These are only small submatrices!
+          mem_Ksub[ith].zeros(radial.max_Nprim()*radial.max_Nprim());
+          mem_Rsub00[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
+          mem_Rsub02[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
+          mem_Rsub20[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
+          mem_Rsub22[ith].zeros((Nmax+1)*radial.max_Nprim()*(Nmax+1)*radial.max_Nprim());
+          // mem_T[ith].zeros((Nmax+1)*radial.max_Nprim()*radial.max_Nprim());
+          mem_Psub[ith].zeros(Nrad*Nrad); // Used in agular sum
+
+          // Increment
+#ifdef _OPENMP
+#pragma omp for collapse(2)
+#endif
+
+
 	for(size_t jang=0;jang<lval.n_elem;jang++) {
 	  for(size_t kang=0;kang<lval.n_elem;kang++) {
 	    int lj(lval(jang));
@@ -2002,8 +2053,8 @@ namespace helfem {
 		  const size_t ilm(lmind(L,M));
 		  const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
 		  
-		  // arma::mat Psub(mem_Psub[ith].memptr(),Nrad,Nrad,false,true);
-		  arma::mat Psub(Nrad,Nrad);
+		  arma::mat Psub(mem_Psub[ith].memptr(),Nrad,Nrad,false,true);
+		  // arma::mat Psub(Nrad,Nrad);
 		  Psub=P.submat(iang*Nrad,lang*Nrad,(iang+1)*Nrad-1,(lang+1)*Nrad-1);
 		  
 		  Rmat00[ilm]+=(LMfac*cpl00)*Psub;
@@ -2015,54 +2066,61 @@ namespace helfem {
 	      }
 	    }
 
-	    for(size_t ilm=0;ilm<lm_map.size();ilm++) {
+	    arma::mat ones_diag(arma::diagmat(arma::ones<arma::vec>(Nmax+1)));
+	    
+	    for(size_t iel=0;iel<Nel;iel++) {
+	      size_t ifirst, ilast;
+	      radial.get_idx(iel,ifirst,ilast);
+	      size_t Ni(ilast-ifirst+1);
+	      
+	      for(int lel=0;lel<Nel;lel++) {
+		size_t lfirst, llast;
+		radial.get_idx(lel,lfirst,llast);
+		size_t Nl(llast-lfirst+1);
 		
-	      if(!couple[ilm])
-		continue;
-
-	      // int L(lm_map[ilm].first);
-	      // int M(lm_map[ilm].second);
-	      // const double LMfac(4.0*M_PI*std::pow(Rhalf,5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
-
-	      for(size_t iel=0;iel<Nel;iel++) {
-		size_t ifirst, ilast;
-		radial.get_idx(iel,ifirst,ilast);
-		size_t Ni(ilast-ifirst+1);
+		// arma::mat Ksub(Ni,Nl);
+		arma::mat Ksub(mem_Ksub[ith].memptr(),Ni,Nl,false,true);
+		Ksub.zeros();
 		
-		for(int lel=0;lel<Nel;lel++) {
-		  size_t lfirst, llast;
-		  radial.get_idx(lel,lfirst,llast);
-		  size_t Nl(llast-lfirst+1);
+		// arma::mat T(mem_T[ith].memptr(),Ni*(Nmax+1),Nl,false,true);
 
-		  arma::mat Rsub00(Rmat00[ilm].submat(ifirst,lfirst,ilast,llast));
-		  // std::cout << "Rsub00.n_rows=" << Rsub00.n_rows << " Rsub00.n_cols=" << Rsub00.n_cols << "\n";
-		  arma::mat Rsub02(Rmat02[ilm].submat(ifirst,lfirst,ilast,llast));
-		  arma::mat Rsub20(Rmat20[ilm].submat(ifirst,lfirst,ilast,llast));
-		  arma::mat Rsub22(Rmat22[ilm].submat(ifirst,lfirst,ilast,llast));
-
-		  arma::cube prim_tei_cr_i0((double*) prim_tei_cr0[Nel*ilm + iel].memptr(),Ni,Ni,Nmax+1,false,true);
-		  arma::cube prim_tei_cr_i2((double*) prim_tei_cr2[Nel*ilm + iel].memptr(),Ni,Ni,Nmax+1,false,true);
-		  // std::cout << "prim_tei_cr_i2.n_rows=" << prim_tei_cr_i2.n_rows << " prim_tei_cr_i2.n_cols=" << prim_tei_cr_i2.n_cols << " prim_tei_cr_i2.n_slices=" << prim_tei_cr_i2.n_slices << "\n";
-		  arma::cube prim_tei_cr_l0((double*) prim_tei_cr0[Nel*ilm + lel].memptr(),Nl,Nl,Nmax+1,false,true);
-		  arma::cube prim_tei_cr_l2((double*) prim_tei_cr2[Nel*ilm + lel].memptr(),Nl,Nl,Nmax+1,false,true);
-
-		  arma::mat Ksub(Ni,Nl);
-		  Ksub.zeros();
-
-		  // std::cout << "Ksub.n_rows=" << Ksub.n_rows << " Ksub.n_cols=" << Ksub.n_cols << "\n";
+		for(size_t ilm=0;ilm<lm_map.size();ilm++) {
 		  
-		  for(size_t N=0;N<=Nmax;N++) { // ideally this would also use broadcasting
-		    Ksub += prim_tei_cr_i2.slice(N)*Rsub22*prim_tei_cr_l2.slice(N); // need arma::vectorise or something in here
-		    Ksub += prim_tei_cr_i2.slice(N)*Rsub20*prim_tei_cr_l0.slice(N);
-		    Ksub += prim_tei_cr_i0.slice(N)*Rsub02*prim_tei_cr_l2.slice(N);
-		    Ksub += prim_tei_cr_i0.slice(N)*Rsub00*prim_tei_cr_l0.slice(N);
-		  }
+		  if(!couple[ilm])
+		    continue;
+		  
+		  arma::mat Rsub00_blockmat(mem_Rsub00[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		  Rsub00_blockmat = arma::kron(ones_diag, Rmat00[ilm].submat(ifirst,lfirst,ilast,llast));
+		  arma::mat Rsub02_blockmat(mem_Rsub02[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		  Rsub02_blockmat = arma::kron(ones_diag, Rmat02[ilm].submat(ifirst,lfirst,ilast,llast));
+		  arma::mat Rsub20_blockmat(mem_Rsub20[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		  Rsub20_blockmat = arma::kron(ones_diag, Rmat20[ilm].submat(ifirst,lfirst,ilast,llast));
+		  arma::mat Rsub22_blockmat(mem_Rsub22[ith].memptr(),(Nmax+1)*Ni,(Nmax+1)*Nl,false,true);
+		  Rsub22_blockmat = arma::kron(ones_diag, Rmat22[ilm].submat(ifirst,lfirst,ilast,llast));
 
-		  K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub/(4.0*M_PI);
+		  // arma::mat Rsub00_blockmat(arma::kron(ones_diag, Rmat00[ilm].submat(ifirst,lfirst,ilast,llast)));
+		  // arma::mat Rsub02_blockmat(arma::kron(ones_diag, Rmat02[ilm].submat(ifirst,lfirst,ilast,llast)));
+		  // arma::mat Rsub20_blockmat(arma::kron(ones_diag, Rmat20[ilm].submat(ifirst,lfirst,ilast,llast)));
+		  // arma::mat Rsub22_blockmat(arma::kron(ones_diag, Rmat22[ilm].submat(ifirst,lfirst,ilast,llast)));
+		  
+		  Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub00_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
+		  Ksub += prim_ktei_cr0[Nel*ilm + iel] * Rsub02_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
+		  Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub20_blockmat * prim_ktei_cr0[Nel*ilm + lel].t();
+		  Ksub += prim_ktei_cr2[Nel*ilm + iel] * Rsub22_blockmat * prim_ktei_cr2[Nel*ilm + lel].t();
+
+		  // T = prim_ktei_cr0[Nel*ilm + iel] * Rsub00_blockmat + prim_ktei_cr2[Nel*ilm + iel] * Rsub20_blockmat;
+		  // Ksub += T*prim_ktei_cr0[Nel*ilm + lel].t();
+		  // T = prim_ktei_cr0[Nel*ilm + iel] * Rsub02_blockmat + prim_ktei_cr2[Nel*ilm + iel] * Rsub22_blockmat;
+		  // Ksub += T*prim_ktei_cr2[Nel*ilm + lel].t();
 		}
+		
+		K_cr.submat(jang*Nrad+ifirst,kang*Nrad+lfirst,jang*Nrad+ilast,kang*Nrad+llast) -= Ksub/(4.0*M_PI);
+
 	      }
 	    }
 	  }
+	}
+
 	}
 
 	return remove_boundaries(K_cr);
