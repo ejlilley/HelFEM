@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
   parser.add<int>("nquad", 0, "number of quadrature points", false, 0);
   parser.add<int>("cr", 0, "type of CR: 1 for isochrone-like (orthonormal), 2 for Plummer-like (orthonormal), 0 for Plummer-like (non-orthonormal; deprecated)", false, 1);
   parser.add<bool>("crdiag", 0, "print diagnostic information comparing CR to normal evaluation", false, false);
+  parser.add<bool>("cronly", 0, "actually use CR", false, false);
   parser.add<int>("nmax", 0, "maximum radial order of Coulomb resolution (<0 disables CR)", false, -1);
   parser.add<int>("maxit", 0, "maximum number of iterations", false, 50);
   parser.add<double>("convthr", 0, "convergence threshold", false, 1e-7);
@@ -167,6 +168,7 @@ int main(int argc, char **argv) {
 
   int CR(parser.get<int>("cr"));
   bool crdiag(parser.get<bool>("crdiag"));
+  bool cronly(parser.get<bool>("cronly"));
   int Nmax(parser.get<int>("nmax"));
 
   // DFT angular grid
@@ -771,13 +773,14 @@ int main(int argc, char **argv) {
   printf("Computing two-electron integrals\n");
   fflush(stdout);
   timer.set();
-  basis.compute_tei(kfrac!=0.0);
-  printf("Done in %.6f\n",timer.get());
-
+  if (!cronly) {
+    basis.compute_tei(kfrac!=0.0);
+  }
   if (Nmax > -1) {
     basis.set_Nmax(Nmax);
     basis.compute_tei_cr(CR,kfrac!=0.0);
   }
+  printf("Done in %.6f\n",timer.get());
 
   double Ekin=0.0, Epot=0.0, Ecoul=0.0, Exx=0.0, Exc=0.0, Eefield=0.0, Emfield=0.0, Etot=0.0;
   double Eold=0.0;
@@ -818,24 +821,38 @@ int main(int argc, char **argv) {
     chkpt.write("Emfield",Emfield);
 
     // Form Coulomb matrix
-    timer.set();
-    arma::mat J(basis.coulomb(P));
-    double tJ(timer.get());
-    Ecoul=0.5*arma::trace(P*J);
-    printf("Coulomb energy %.10e % .6f\t",Ecoul,tJ);
-    fflush(stdout);
-    chkpt.write("J",J);
-    chkpt.write("Ecoul",Ecoul);
+    arma::mat J;
+    if (!cronly) {
+      timer.set();
+      J = basis.coulomb(P);
+      double tJ(timer.get());
+      Ecoul=0.5*arma::trace(P*J);
+      printf("Coulomb energy %.10e % .6f\t",Ecoul,tJ);
+      fflush(stdout);
+      chkpt.write("J",J);
+      chkpt.write("Ecoul",Ecoul);
+    }
 
     arma::mat J_cr;
     double Ecoul_cr;
     if (Nmax > -1) {
+      double tJ_cr;
       timer.set();
-      J_cr = basis.coulomb_cr(P);
-      double tJ_cr(timer.get());
-      Ecoul_cr = 0.5*arma::trace(P*J_cr);
-      printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
-      printf("Coulomb CR log error: %.6f",log10(fabs(Ecoul_cr/Ecoul-1)));
+
+      if (cronly) {
+	J = basis.coulomb_cr(P);
+	Ecoul = 0.5*arma::trace(P*J);
+	tJ_cr = timer.get();
+	printf("Coulomb CR energy %.10e % .6f\t",Ecoul,tJ_cr);
+      } else {
+	J_cr = basis.coulomb_cr(P);
+	Ecoul_cr = 0.5*arma::trace(P*J_cr);
+	tJ_cr = timer.get();
+	printf("Coulomb CR energy %.10e % .6f\t",Ecoul_cr,tJ_cr);
+	printf("Coulomb CR log error: %.6f",log10(fabs(Ecoul_cr/Ecoul-1)));
+      }
+
+
     }
 
     printf("\n");
@@ -853,70 +870,102 @@ int main(int argc, char **argv) {
     timer.set();
     arma::mat Ka, Kb;
     double tK;
-    if(kfrac!=0.0) {
-      Ka=kfrac*basis.exchange(Pa);
 
-      if(nelb) {
-        if(restr && nela==nelb)
-          Kb=Ka;
-        else
-          Kb=kfrac*basis.exchange(Pb);
-      } else
-        Kb.zeros(Cbocc.n_rows,Cbocc.n_rows);
-      // double tK(timer.get());
-      tK = timer.get();
-      Exx=0.5*arma::trace(Pa*Ka);
-      if(Kb.n_rows == Pb.n_rows && Kb.n_cols == Pb.n_cols)
-        Exx+=0.5*arma::trace(Pb*Kb);
-      // printf("Exchange energy %.10e % .6f\t",Exx,tK);
-    } else {
-      Exx=0.0;
+    if (!cronly) {
+      if(kfrac!=0.0) {
+	Ka=kfrac*basis.exchange(Pa);
+	
+	if(nelb) {
+	  if(restr && nela==nelb)
+	    Kb=Ka;
+	  else
+	    Kb=kfrac*basis.exchange(Pb);
+	} else
+	  Kb.zeros(Cbocc.n_rows,Cbocc.n_rows);
+	tK = timer.get();
+	Exx=0.5*arma::trace(Pa*Ka);
+	if(Kb.n_rows == Pb.n_rows && Kb.n_cols == Pb.n_cols)
+	  Exx+=0.5*arma::trace(Pb*Kb);
+	printf("Exchange energy %.10e % .6f\t",Exx,tK);
+      } else {
+	Exx=0.0;
+      }
+      fflush(stdout);
+      chkpt.write("Ka",Ka);
+      chkpt.write("Kb",Kb);
+      chkpt.write("Exx",Exx);
     }
-    fflush(stdout);
-
-    chkpt.write("Ka",Ka);
-    chkpt.write("Kb",Kb);
-    chkpt.write("Exx",Exx);
 
     arma::mat Ka_cr; arma::mat Kb_cr;
     double Exx_cr(0.0); double tK_cr(0.0);
 
-    if (Nmax >= -1) {
+    if (Nmax > -1 && kfrac!=0.0) {
       
       timer.set();
       
-      Ka_cr=basis.exchange_cr(Pa);
-
-      if(nelb) {
-        if(restr && nela==nelb)
-          Kb_cr=Ka_cr;
-        else
-          Kb_cr=basis.exchange(Pb);
-      } else
-        Kb_cr.zeros(Cbocc.n_rows,Cbocc.n_rows);
-
-      tK_cr = timer.get();
-
-      Exx_cr=0.5*arma::trace(Pa*Ka_cr);
-      if(Kb_cr.n_rows == Pb.n_rows && Kb_cr.n_cols == Pb.n_cols)
-        Exx_cr+=0.5*arma::trace(Pb*Kb_cr);
-
-      printf("Exchange energy %.10e % .6f\t",Exx,tK);
-      printf("Exchange CR energy %.10e % .6f\t",Exx_cr,tK_cr);
-      printf("Exchange CR log error: %.6f",log10(fabs(Exx_cr/Exx-1)));
+      if (cronly) {
+	Ka = kfrac*basis.exchange_cr(Caocc,nela);
+	if(nelb) {
+	  if(restr && nela==nelb)
+	    Kb=Ka;
+	  else {
+	    Kb = kfrac*basis.exchange_cr(Cbocc,nelb);
+	  }
+	} else {
+	  Kb.zeros(Cbocc.n_rows,Cbocc.n_rows);
+	}
+	Exx=0.5*arma::trace(Pa*Ka);
+	Exx+=0.5*arma::trace(Pb*Kb);
+	tK_cr = timer.get();
+	printf("Exchange CR energy %.10e % .6f\t",Exx,tK_cr);
+      } else {
+	Ka_cr = kfrac*basis.exchange_cr(Caocc,nela);
+	if(nelb) {
+	  if(restr && nela==nelb)
+	    Kb_cr=Ka_cr;
+	  else {
+	    Kb_cr = kfrac*basis.exchange_cr(Cbocc,nelb);
+	  }
+	} else {
+	  Kb_cr.zeros(Cbocc.n_rows,Cbocc.n_rows);
+	}
+	Exx_cr=0.5*arma::trace(Pa*Ka_cr);
+	Exx_cr+=0.5*arma::trace(Pb*Kb_cr);
+	tK_cr = timer.get();
+	printf("Exchange CR energy %.10e % .6f\t",Exx_cr,tK_cr);
+	printf("Exchange CR log error: %.6f",log10(fabs(Exx_cr/Exx-1)));
+      }
     }
 
     printf("\n");
 
-    if (crdiag) {
+    if (crdiag && !cronly) {
+
+      // double Exx_a = 0.5*arma::trace(Pa*Ka);
+      // double Exx_cr_a = 0.5*arma::trace(Pa*Ka_cr);
+      // double Exx_b = 0.5*arma::trace(Pb*Kb);
+      // double Exx_cr_b = 0.5*arma::trace(Pb*Kb_cr);
+      // printf("Exchange energy (a) %.10e\t",Exx_a);
+      // printf("Exchange CR energy (a) %.10e\t",Exx_cr_a);
+      // printf("Exchange CR log error (a): %.6f",log10(fabs(Exx_cr_a/Exx_a-1)));
+      // printf("\n");
+      // printf("Exchange energy (b) %.10e\t",Exx_b);
+      // printf("Exchange CR energy (b) %.10e\t",Exx_cr_b);
+      // printf("Exchange CR log error (b): %.6f",log10(fabs(Exx_cr_b/Exx_b-1)));
+      // printf("\n");
+
       std::cout << "Ka=\n" << Ka;
       std::cout << "Ka_cr=\n" << Ka_cr;
       arma::mat ones_matK; ones_matK.copy_size(Ka); ones_matK.ones();
       std::cout << "log10|1 - Ka_cr/Ka|=\n" << arma::log10(arma::abs(ones_matK - Ka_cr/Ka));
-      std::cout << "Ka_cr/Ka=\n" << Ka_cr/Ka;
+      
+      std::cout.precision(15);
+      std::cout.setf(std::iostream::fixed);
+      arma::mat ratio(Ka_cr/Ka);
+      ratio.raw_print(std::cout, "Ka_cr/Ka=");
+      // std::cout << "Ka_cr/Ka=\n" << Ka_cr/Ka;
+      // std::cout << "|Ka_cr/Ka| - 1=\n" << arma::abs(Ka_cr/Ka) - ones_matK;
     }
-
-
 
     // Exchange-correlation
     Exc=0.0;

@@ -208,5 +208,14 @@ namespace helfem {
       return ret;
     }
 
+    void print_mat_dims(std::string s, arma::mat M) {
+      std::cout << s << ".n_rows=" << M.n_rows << " " << s << ".n_cols=" << M.n_cols << "\n";
+    }
+
+    void print_vec_dims(std::string s, arma::vec V) {
+      std::cout << s << ".n_elem=" << V.n_elem << "\n";
+    }
+
+
   }
 }

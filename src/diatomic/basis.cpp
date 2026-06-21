@@ -27,6 +27,7 @@
 #include <cassert>
 #include <cfloat>
 #include "../../libhelfem/include/cr/cr_integrals.h"
+#include "../../libhelfem/include/cr/cr_utils.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -1676,7 +1677,7 @@ namespace helfem {
 
 	for(size_t iLM=0;iLM<LM_map.size();iLM++) {
 	  int L(LM_map[iLM].first);
-          int M(LM_map[iLM].second);
+	  int M(LM_map[iLM].second);
 	  const size_t ilm(lmind(L,M));
 	  const double LMfac(sqrt(4.0*M_PI*std::pow(Rhalf,5)/factorial_ratio(L+std::abs(M),L-std::abs(M))));
 
@@ -1695,7 +1696,7 @@ namespace helfem {
 	arma::mat J_cr(Ndummy(),Ndummy());
         J_cr.zeros();
 
-	for(size_t iang=0;iang<lval.n_elem;iang++) {
+ 	for(size_t iang=0;iang<lval.n_elem;iang++) {
           for(size_t jang=0;jang<lval.n_elem;jang++) {
             // l and m values
             int li(lval(iang));
@@ -1730,7 +1731,6 @@ namespace helfem {
 	//return remove_boundaries(J_cr);
 
       }
-
 
       arma::mat TwoDBasis::exchange(const arma::mat & P0) const {
         if(!prim_ktei00.size())
@@ -1935,7 +1935,7 @@ namespace helfem {
         return remove_boundaries(K);
       }
 
-      arma::mat TwoDBasis::exchange_cr(const arma::mat & P0) const {
+      arma::mat TwoDBasis::exchange_cr_old(const arma::mat & P0) const {
         if(!prim_ktei00.size())
           throw std::logic_error("Primitive teis have not been computed!\n");
 
@@ -2149,7 +2149,7 @@ namespace helfem {
 
 		}
 
-		for (int n = 0; n <= Nmax; n++) {
+		for (int n = 0; n <= Nmax; n++) { // extract the blocks we actually want
 		  Ksub3 += Ksub2.submat(n*Ni,n*Nl,(n+1)*Ni-1,(n+1)*Nl-1);
 		}
 
@@ -2164,6 +2164,159 @@ namespace helfem {
 	}
 
 	return remove_boundaries(K_cr);
+      }
+
+      arma::mat TwoDBasis::exchange_cr(const arma::mat & C, size_t nocc) const {
+        // if(!prim_ktei00.size())
+          // throw std::logic_error("Primitive teis have not been computed!\n");
+
+	// arma::mat P(C.cols(0,nocc-1)*arma::trans(C.cols(0,nocc-1)));
+
+	// Number of radial elements
+        size_t Nel(radial.Nel());
+        // Number of radial basis functions
+        size_t Nrad(radial.Nbf());
+
+	size_t Ncoeff(Ndummy());
+
+        // Full exchange matrix
+        arma::mat K(Ncoeff,Ncoeff);
+        K.zeros();
+
+
+	std::vector<std::vector<arma::vec>> Caux0(nocc);
+	std::vector<std::vector<arma::vec>> Caux2(nocc);
+	std::vector<std::vector<arma::mat>> Kaux(nocc);
+	for (size_t iocc=0;iocc<nocc;iocc++) {
+	  Caux0[iocc].resize(lm_map.size());
+	  Caux2[iocc].resize(lm_map.size());
+	  Kaux[iocc].resize(lm_map.size());
+	  for (size_t ilm=0;ilm<lm_map.size();ilm++) {
+	    Kaux[iocc][ilm].zeros(Ncoeff,Nmax+1);
+	    Caux0[iocc][ilm].zeros(Nrad);
+	    Caux2[iocc][ilm].zeros(Nrad);
+	  }
+	}
+
+	std::vector<bool> couple(lm_map.size(),false);
+
+	// arma::vec mem_Ksub;
+	// mem_Ksub.zeros(radial.max_Nprim()*radial.max_Nprim());
+
+	for(size_t jang=0;jang<lval.n_elem;jang++) {
+	  int lj(lval(jang));
+	  int mj(mval(jang));
+
+	  for(size_t iang=0;iang<lval.n_elem;iang++) {
+	    int li(lval(iang));
+	    int mi(mval(iang));
+
+	    int M(mi-mj);
+
+	    double bdens(arma::norm(C.submat(iang*Nrad,0,(iang+1)*Nrad-1,nocc-1),"fro"));
+	    if(bdens<10*DBL_EPSILON)
+	      continue;
+
+	    int Lmin=std::max(std::abs(li-lj)-2,abs(M));
+	    int Lmax=li+lj+2;
+
+	    for(int L=Lmin;L<=Lmax;L++) {
+
+	      // std::cout << "C -> Caux\n";
+	      // std::cout << "L=" << L << " M=" << M << "\n";
+	      const size_t ilm(lmind(L,M));
+      
+	      double cpl0(gaunt.mod_coeff(li,mi,L,M,lj,mj));
+	      double cpl2(gaunt.coeff(li,mi,L,M,lj,mj));
+	      
+	      if (cpl0 == 0.0 && cpl2 == 0.0)
+		continue;
+
+	      if (cpl0 != 0.0) {
+		for (size_t iocc=0; iocc<nocc; iocc++) {
+		  Caux0[iocc][ilm] += cpl0 * C.col(iocc).subvec(iang*Nrad,(iang+1)*Nrad-1);
+		}
+	      }
+
+	      if (cpl2 != 0.0) {
+		for (size_t iocc=0; iocc<nocc; iocc++) {
+		  Caux2[iocc][ilm] += cpl2 * C.col(iocc).subvec(iang*Nrad,(iang+1)*Nrad-1);
+		}
+	      }
+
+	      couple[ilm]=true;
+
+	    }
+	  }
+
+
+	  for(size_t iel=0;iel<Nel;iel++) {
+	    size_t ifirst, ilast;
+	    radial.get_idx(iel,ifirst,ilast);
+	    size_t Ni(ilast-ifirst+1);
+
+	    for(size_t ilm=0;ilm<lm_map.size();ilm++) {
+
+	      // std::cout << "Caux -> Kaux\n";
+
+	      int L(lm_map[ilm].first);
+	      int M(lm_map[ilm].second);
+	      const size_t idx(Nel*ilm + iel);
+
+	      for (size_t iocc=0; iocc<nocc; iocc++) {
+		Kaux[iocc][ilm].submat(jang*Nrad+ifirst,0,jang*Nrad+ilast,Nmax) += arma::reshape(arma::trans(Caux2[iocc][ilm].subvec(ifirst,ilast)) * prim_ktei_cr2[idx] - arma::trans(Caux0[iocc][ilm].subvec(ifirst,ilast)) * prim_ktei_cr0[idx],Ni,Nmax+1);
+	      }
+	    }
+	  }
+
+
+	}
+
+	for(size_t jang=0;jang<lval.n_elem;jang++) {
+	  int lj(lval(jang));
+	  int mj(mval(jang));
+
+	  for(size_t kang=0;kang<lval.n_elem;kang++) {
+	    int lk(lval(kang));
+	    int mk(mval(kang));
+	    
+	    for(size_t jel=0;jel<Nel;jel++) {
+	      size_t jfirst, jlast;
+	      radial.get_idx(jel,jfirst,jlast);
+	      size_t Nj(jlast-jfirst+1);
+	      
+	      for(size_t kel=0;kel<Nel;kel++) {
+		size_t kfirst, klast;
+		radial.get_idx(kel,kfirst,klast);
+		size_t Nk(klast-kfirst+1);
+		
+		// arma::mat Ksub(mem_Ksub.memptr(),Nj,Nk,false,true);
+		arma::mat Ksub(Nj,Nk);
+		Ksub.zeros();
+		// cr::print_mat_dims("Ksub", Ksub);
+
+		for(size_t ilm=0;ilm<lm_map.size();ilm++) {
+		  if(!couple[ilm])
+		    continue;
+		  int L(lm_map[ilm].first);
+		  int M(lm_map[ilm].second);
+		  double LMfac(std::pow(Rhalf,-5)*std::pow(-1.0,M)/factorial_ratio(L+std::abs(M),L-std::abs(M)));
+
+		  for (size_t iocc=0; iocc<nocc; iocc++) {
+		    Ksub += Kaux[iocc][ilm].submat(jang*Nrad+jfirst,0,jang*Nrad+jlast,Nmax) * arma::trans(Kaux[iocc][ilm].submat(kang*Nrad+kfirst,0,kang*Nrad+klast,Nmax))/LMfac;
+		  }
+		}
+
+		// std::cout << "Ksub -> K\n";
+		K.submat(jang*Nrad+jfirst,kang*Nrad+kfirst,jang*Nrad+jlast,kang*Nrad+klast) = -Ksub;
+		
+	      }
+	    }
+	    
+	  }
+	}
+	
+	return(K);
       }
 
 

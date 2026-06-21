@@ -269,7 +269,8 @@ namespace helfem {
         /// Form Coulomb matrix
         arma::mat coulomb_cr(const arma::mat & P) const;
         /// Form exchange matrix
-	arma::mat exchange_cr(const arma::mat & P) const;
+	arma::mat exchange_cr_old(const arma::mat & P) const;
+	arma::mat exchange_cr(const arma::mat & C, size_t nocc) const;
 
         /// Get primitive integrals
         std::vector<arma::mat> get_prim_tei() const;

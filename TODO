@@ -1,7 +1,8 @@
 - fix poor scaling of Coulomb integral when angular indices >0 [DONE]
   - possibly fuse some of the auxiliary integrals(?)
-- vectorise core loop of CR exchange integral
-  - fix any other poor scaling of exchange integral
+- vectorise core loop(s) of CR exchange integral
+  - improve Nocc scaling of exchange integral
+  - fix l>1 and m>0 errors
 - make alpha parameter "generic" w.r.t. choice of CR
 - implement orthonormal "isochrone" prolate spheroidal CR
 - insert the appropriate OpenMP declarations everywhere

@@ -21,5 +21,9 @@ namespace helfem {
 
     arma::vec jacobi_norm_n(size_t n, double a, double b, double x);
 
+    void print_mat_dims(std::string s, arma::mat M);
+
+    void print_vec_dims(std::string s, arma::vec V);
+
   }
 }
